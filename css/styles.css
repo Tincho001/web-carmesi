@@ -191,6 +191,12 @@ button { font: inherit; cursor: pointer; }
 .pie__contacto { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14px; }
 .pie__contacto a { text-decoration: none; opacity: .85; }
 .pie__contacto a:hover { opacity: 1; text-decoration: underline; }
+.pie__firma {
+  margin: 32px 0 0; padding-top: 16px;
+  border-top: 1px solid rgba(246, 239, 230, .12);
+  font-size: 11px; letter-spacing: .06em; opacity: .55;
+}
+.pie__firma strong { font-weight: 600; }
 
 /* ---------- WhatsApp flotante ---------- */
 .wa-flotante {
