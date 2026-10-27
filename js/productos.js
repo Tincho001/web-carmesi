@@ -5,7 +5,6 @@
 
 window.CARMESI = {
   whatsapp: '5492612554003',
-  whatsappAlt: '5492615708717',
   instagram: 'bags_carmesi',
 
   categorias: [

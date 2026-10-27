@@ -1,9 +1,8 @@
 (function () {
-  const { productos, categorias, whatsapp, whatsappAlt, instagram } = window.CARMESI;
+  const { productos, categorias, whatsapp, instagram } = window.CARMESI;
   const $ = (id) => document.getElementById(id);
   const plata = (n) => '$' + n.toLocaleString('es-AR');
-  const urlWhatsapp = (texto, numero = whatsapp) =>
-    `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`;
+  const urlWhatsapp = (texto) => `https://wa.me/${whatsapp}?text=${encodeURIComponent(texto)}`;
   const nombreCategoria = (id) => (categorias.find((c) => c.id === id) || {}).nombre || '';
   const porId = (id) => productos.find((p) => p.id === id);
 
@@ -11,8 +10,7 @@
   const saludo = '¡Hola Carmesí! Quería hacer una consulta 😊';
   $('waPortada').href = urlWhatsapp(saludo);
   $('waFlotante').href = urlWhatsapp(saludo);
-  $('waPie1').href = urlWhatsapp(saludo);
-  $('waPie2').href = urlWhatsapp(saludo, whatsappAlt);
+  $('waPie').href = urlWhatsapp(saludo);
   $('igPie').href = `https://instagram.com/${instagram}`;
 
   // ---------- Filtros ----------
