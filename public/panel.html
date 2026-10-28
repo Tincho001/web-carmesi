@@ -98,9 +98,10 @@
     </div>
     <p class="quien" id="quien"></p>
     <div class="menu">
-      <button type="button" class="btn btn--borde" id="menuUsuarios" data-solo="manage">👥 Usuarios</button>
-      <button type="button" class="btn btn--borde" id="menuHistorial" data-solo="manage">🕑 Historial de cambios</button>
-      <button type="button" class="btn btn--borde" id="menuNegocio" data-solo="manage">Datos del negocio</button>
+      <button type="button" class="btn btn--borde" id="menuUsuarios" data-perm="users">👥 Usuarios</button>
+      <button type="button" class="btn btn--borde" id="menuHistorial" data-perm="activity">🕑 Historial de cambios</button>
+      <button type="button" class="btn btn--borde" id="menuNegocio" data-perm="settings">Datos del negocio</button>
+      <button type="button" class="btn btn--borde" id="menuNiveles" data-solo="super">🔐 Niveles y permisos</button>
       <button type="button" class="btn btn--borde" id="menuObra" data-solo="super"></button>
       <button type="button" class="btn btn--borde" id="menuClave">Cambiar mi contraseña</button>
       <button type="button" class="btn btn--borrar" id="salir">Salir</button>
@@ -140,25 +141,6 @@
       <h2>Usuarios</h2>
       <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
     </div>
-    <details class="niveles">
-      <summary>¿Qué puede hacer cada nivel?</summary>
-      <div class="niveles__tabla">
-        <table>
-          <thead><tr><th></th><th>Pixel Cuyo</th><th>Admin</th><th>Vendedor</th></tr></thead>
-          <tbody>
-            <tr><td>Cargar y editar productos y stock</td><td>✅</td><td>✅</td><td>✅</td></tr>
-            <tr><td>Borrar productos y manejar categorías</td><td>✅</td><td>✅</td><td>❌</td></tr>
-            <tr><td>WhatsApp e Instagram</td><td>✅</td><td>✅</td><td>❌</td></tr>
-            <tr><td>Ver el historial de cambios</td><td>✅</td><td>✅</td><td>❌</td></tr>
-            <tr><td>Crear vendedores y cambiarles la contraseña</td><td>✅</td><td>✅</td><td>❌</td></tr>
-            <tr><td>Crear administradores</td><td>✅</td><td>❌</td><td>❌</td></tr>
-            <tr><td>Cambiar la contraseña de un admin</td><td>✅</td><td>❌</td><td>❌</td></tr>
-            <tr><td>Web en construcción / abrirla al público</td><td>✅</td><td>❌</td><td>❌</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="ayuda">El usuario de Pixel Cuyo tiene control total y no se puede borrar.</p>
-    </details>
     <ul class="usuarios" id="listaUsuarios"></ul>
     <form id="formUsuario" class="nuevo-usuario">
       <h3>Nuevo usuario</h3>
@@ -174,6 +156,21 @@
       <p class="error" id="errorUsuarios" hidden></p>
       <div class="dlg__pie"><button type="submit" class="btn btn--bordo">Crear usuario</button></div>
     </form>
+  </dialog>
+
+  <dialog class="dlg" id="dlgNiveles">
+    <div class="dlg__cabeza">
+      <h2>Niveles y permisos</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <p class="ayuda">Tildá lo que puede hacer cada nivel. Se guarda al tocar. Tu columna (Pixel Cuyo) tiene todo y no se cambia.</p>
+    <div class="niveles__tabla">
+      <table class="niveles">
+        <thead><tr><th></th><th>Pixel Cuyo</th><th>Admin</th><th>Vendedor</th></tr></thead>
+        <tbody id="tablaNiveles"></tbody>
+      </table>
+    </div>
+    <p class="ayuda">🔒 Siempre solo tuyo: crear administradores, cambiarle la contraseña a un admin, ver las contraseñas y poner la web en construcción o abrirla. Así nadie te puede dejar afuera.</p>
   </dialog>
 
   <dialog class="dlg" id="dlgHistorial">

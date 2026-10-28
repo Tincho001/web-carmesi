@@ -384,14 +384,40 @@ async function currentUser(req) {
 const publicUser = (u) => ({ id: u.id, username: u.username, role: u.role, alias: u.alias || '' });
 const whoName = (u) => (u.alias ? `${u.alias} (${u.username})` : u.username);
 
+// Permisos que Pixel Cuyo prende o apaga por rol desde el panel (super siempre tiene todo).
+// Lo de crear admins, cambiarles la contraseña y la web en construcción es solo de super, fijo.
+const PERMISSIONS = [
+  { key: 'products_edit', label: 'Cargar y editar productos y stock' },
+  { key: 'products_delete', label: 'Borrar productos' },
+  { key: 'categories', label: 'Crear, ordenar y borrar categorías' },
+  { key: 'settings', label: 'Cambiar WhatsApp e Instagram' },
+  { key: 'activity', label: 'Ver el historial de cambios' },
+  { key: 'users', label: 'Crear vendedores y cambiarles la contraseña' },
+];
+const DEFAULT_PERMS = {
+  admin: { products_edit: true, products_delete: true, categories: true, settings: true, activity: true, users: true },
+  vendedor: { products_edit: true, products_delete: false, categories: false, settings: false, activity: false, users: false },
+};
+let PERMS = DEFAULT_PERMS;
+
+async function loadPerms() {
+  let saved = {};
+  try { saved = JSON.parse((await getMeta('permissions')) || '{}'); } catch { saved = {}; }
+  PERMS = {};
+  for (const role of Object.keys(DEFAULT_PERMS)) {
+    PERMS[role] = {};
+    for (const { key } of PERMISSIONS) PERMS[role][key] = typeof saved[role]?.[key] === 'boolean' ? saved[role][key] : DEFAULT_PERMS[role][key];
+  }
+}
+
 // Quién puede hacer qué.
 const can = {
-  catalog: (u) => ROLES.includes(u.role),                   // crear y editar productos, stock
-  manage: (u) => u.role === 'super' || u.role === 'admin',   // borrar productos, categorías, datos del negocio, historial
   super: (u) => u.role === 'super',
-  // super maneja a todos; admin solo a los vendedores.
-  manageUser: (u, target) => u.role === 'super' || (u.role === 'admin' && target.role === 'vendedor'),
+  do: (u, key) => u.role === 'super' || !!PERMS[u.role]?.[key],
+  // super maneja a todos; los demás (con el permiso) solo a los vendedores.
+  manageUser: (u, target) => u.role === 'super' || (can.do(u, 'users') && target.role === 'vendedor'),
 };
+const permsOf = (u) => Object.fromEntries(PERMISSIONS.map(({ key }) => [key, can.do(u, key)]));
 
 function requireRole(ok, message = 'No tenés permiso para hacer esto') {
   if (!ok) throw new HttpError(403, message);
@@ -528,7 +554,33 @@ async function handleApi(req, res, url) {
   const user = await currentUser(req);
   if (!user) throw new HttpError(401, 'Iniciá sesión');
 
-  if (route === 'GET /api/me') return send(res, 200, { user: publicUser(user), maintenance: await inMaintenance() });
+  if (route === 'GET /api/me') return send(res, 200, { user: publicUser(user), perms: permsOf(user), maintenance: await inMaintenance() });
+
+  // ----- niveles y permisos (solo Pixel Cuyo) -----
+  if (route === 'GET /api/permissions') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo ve los permisos');
+    return send(res, 200, { permissions: PERMISSIONS, roles: PERMS });
+  }
+  if (route === 'PUT /api/permissions') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo cambia los permisos');
+    const body = await readJson(req);
+    const before = PERMS;
+    const next = {};
+    for (const role of Object.keys(DEFAULT_PERMS)) {
+      next[role] = {};
+      for (const { key } of PERMISSIONS) next[role][key] = typeof body[role]?.[key] === 'boolean' ? body[role][key] : before[role][key];
+    }
+    await setMeta('permissions', JSON.stringify(next));
+    await loadPerms();
+    const changes = [];
+    for (const role of Object.keys(next)) {
+      for (const p of PERMISSIONS) {
+        if (before[role][p.key] !== PERMS[role][p.key]) changes.push(`${role}: ${PERMS[role][p.key] ? 'puede' : 'ya no puede'} ${p.label.toLowerCase()}`);
+      }
+    }
+    if (changes.length) await logActivity('site', null, 'permisos', user, 'update', changes);
+    return send(res, 200, { roles: PERMS });
+  }
 
   if (route === 'PUT /api/me/password') {
     const body = await readJson(req);
@@ -549,11 +601,11 @@ async function handleApi(req, res, url) {
 
   // ----- datos del negocio (WhatsApp e Instagram) -----
   if (route === 'GET /api/settings') {
-    requireRole(can.manage(user));
+    requireRole(can.do(user, 'settings'));
     return send(res, 200, await getSettings());
   }
   if (route === 'PUT /api/settings') {
-    requireRole(can.manage(user));
+    requireRole(can.do(user, 'settings'));
     const body = await readJson(req);
     const whatsapp = String(body.whatsapp || '').replace(/\D/g, '');
     if (whatsapp.length < 10 || whatsapp.length > 15) throw new HttpError(400, 'El WhatsApp tiene que ser el número completo, ej: 5492612554003');
@@ -577,7 +629,7 @@ async function handleApi(req, res, url) {
   }
 
   if (route === 'POST /api/categories') {
-    requireRole(can.manage(user), 'Solo la dueña puede crear categorías');
+    requireRole(can.do(user, 'categories'), 'No tenés permiso para crear categorías');
     const name = cleanName((await readJson(req)).name, 'de la categoría');
     const pos = Number((await db.execute('SELECT COALESCE(MAX(position), -1) + 1 AS n FROM categories')).rows[0].n);
     try {
@@ -592,14 +644,14 @@ async function handleApi(req, res, url) {
 
   const cmove = url.pathname.match(/^\/api\/categories\/(\d+)\/move$/);
   if (cmove && req.method === 'POST') {
-    requireRole(can.manage(user));
+    requireRole(can.do(user, 'categories'));
     await move('categories', Number(cmove[1]), (await readJson(req)).dir);
     return send(res, 200, { ok: true });
   }
 
   const cm = url.pathname.match(/^\/api\/categories\/(\d+)$/);
   if (cm) {
-    requireRole(can.manage(user), 'Solo la dueña puede cambiar categorías');
+    requireRole(can.do(user, 'categories'), 'No tenés permiso para cambiar categorías');
     const id = Number(cm[1]);
     const existing = (await db.execute({ sql: 'SELECT * FROM categories WHERE id = ?', args: [id] })).rows[0];
     if (!existing) throw new HttpError(404, 'La categoría no existe');
@@ -632,7 +684,7 @@ async function handleApi(req, res, url) {
   }
 
   if (route === 'POST /api/products') {
-    requireRole(can.catalog(user));
+    requireRole(can.do(user, 'products_edit'), 'No tenés permiso para cargar o editar productos');
     const p = await readProductBody(req);
     if (!p.body.photo) throw new HttpError(400, 'Sacale o elegí una foto');
     const base = newPhotoName();
@@ -651,7 +703,7 @@ async function handleApi(req, res, url) {
 
   const pmove = url.pathname.match(/^\/api\/products\/(\d+)\/move$/);
   if (pmove && req.method === 'POST') {
-    requireRole(can.catalog(user));
+    requireRole(can.do(user, 'products_edit'), 'No tenés permiso para cargar o editar productos');
     const id = Number(pmove[1]);
     const p = (await db.execute({ sql: 'SELECT category_id FROM products WHERE id = ?', args: [id] })).rows[0];
     if (!p) throw new HttpError(404, 'El producto no existe');
@@ -661,7 +713,7 @@ async function handleApi(req, res, url) {
 
   const m = url.pathname.match(/^\/api\/products\/(\d+)$/);
   if (m) {
-    requireRole(can.catalog(user));
+    requireRole(can.do(user, 'products_edit'), 'No tenés permiso para cargar o editar productos');
     const id = Number(m[1]);
     const existing = (await db.execute({ sql: 'SELECT * FROM products WHERE id = ?', args: [id] })).rows[0];
     if (!existing) throw new HttpError(404, 'El producto no existe');
@@ -700,7 +752,7 @@ async function handleApi(req, res, url) {
     }
 
     if (req.method === 'DELETE') {
-      requireRole(can.manage(user), 'Solo la dueña puede borrar productos');
+      requireRole(can.do(user, 'products_delete'), 'No tenés permiso para borrar productos');
       await db.execute({ sql: 'DELETE FROM products WHERE id = ?', args: [id] });
       await logActivity('product', id, productLabel(existing), user, 'delete');
       removeUpload(existing.photo);
@@ -711,7 +763,7 @@ async function handleApi(req, res, url) {
 
   // ----- historial -----
   if (route === 'GET /api/activity') {
-    requireRole(can.manage(user));
+    requireRole(can.do(user, 'activity'));
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 200);
     const r = await db.execute({ sql: 'SELECT * FROM activity ORDER BY at DESC, id DESC LIMIT ?', args: [limit] });
     return send(res, 200, {
@@ -721,7 +773,7 @@ async function handleApi(req, res, url) {
 
   // ----- usuarios: super maneja a todos; la dueña, solo a los vendedores -----
   if (route === 'GET /api/users') {
-    requireRole(can.manage(user));
+    requireRole(can.do(user, 'users'));
     const r = await db.execute("SELECT * FROM users ORDER BY CASE role WHEN 'super' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, username");
     return send(res, 200, {
       users: r.rows.map((u) => ({
@@ -734,7 +786,7 @@ async function handleApi(req, res, url) {
   }
 
   if (route === 'POST /api/users') {
-    requireRole(can.manage(user));
+    requireRole(can.do(user, 'users'));
     const body = await readJson(req);
     const role = String(body.role || 'vendedor');
     if (!['admin', 'vendedor'].includes(role)) throw new HttpError(400, 'Rol inválido');
@@ -757,7 +809,7 @@ async function handleApi(req, res, url) {
 
   const um = url.pathname.match(/^\/api\/users\/(\d+)(\/password)?$/);
   if (um) {
-    requireRole(can.manage(user));
+    requireRole(can.do(user, 'users'));
     const target = await getUser(Number(um[1]));
     if (!target) throw new HttpError(404, 'Usuario no encontrado');
     if (target.id === user.id) throw new HttpError(400, 'Tu propia contraseña cambiala desde "Cambiar mi contraseña"');
@@ -847,7 +899,7 @@ async function handle(req, res) {
   }
 }
 
-initDb().then(() => {
+initDb().then(loadPerms).then(() => {
   http.createServer(handle).listen(PORT, HOST, () => {
     console.log(`Carmesí escuchando en http://${HOST}:${PORT} (datos en ${DATA_DIR})`);
   });

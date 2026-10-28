@@ -52,22 +52,29 @@
   });
 
   const ROL_NOMBRE = { super: 'Pixel Cuyo (control total)', admin: 'Administradora', vendedor: 'Vendedor/a' };
+  // Lo que puede hacer quien entró: lo manda el servidor según los permisos de su nivel.
+  let permisos = {};
   const puede = {
-    manage: () => yo.role === 'super' || yo.role === 'admin',
     super: () => yo.role === 'super',
+    hacer: (clave) => yo.role === 'super' || !!permisos[clave],
   };
   let enObra = false;
 
-  async function entrar(user, obra) {
+  async function entrar(user, me) {
     yo = user;
+    if (!me) me = await api('GET', '/api/me');
+    permisos = me.perms || {};
     $('login').hidden = true;
     $('app').hidden = false;
     $('quien').textContent = `Entraste como ${user.alias || user.username} · ${ROL_NOMBRE[user.role] || user.role}`;
     document.querySelectorAll('[data-solo]').forEach((el) => { el.hidden = !puede[el.dataset.solo](); });
-    // Los vendedores cargan productos y stock, pero no tocan categorías ni borran.
-    $('tabBtnCategorias').hidden = !puede.manage();
-    if (obra === undefined) obra = (await api('GET', '/api/me')).maintenance;
-    pintarObra(obra);
+    document.querySelectorAll('[data-perm]').forEach((el) => { el.hidden = !puede.hacer(el.dataset.perm); });
+    $('tabBtnCategorias').hidden = !puede.hacer('categories');
+    $('nuevoProducto').hidden = !puede.hacer('products_edit');
+    $('nuevaCat').hidden = !puede.hacer('categories');
+    // Si no puede ver categorías, vuelve a la pestaña de productos.
+    if ($('tabBtnCategorias').hidden) document.querySelector('[data-tab="productos"]').click();
+    pintarObra(me.maintenance);
     await cargar();
   }
 
@@ -111,6 +118,7 @@
       (!q || `${p.name} ${p.color}`.toLowerCase().includes(q)));
     // Con búsqueda no tiene sentido reordenar (las flechas mueven dentro de la categoría completa).
     const ordenable = !q;
+    const editable = puede.hacer('products_edit');
 
     const html = categorias.map((c) => {
       const lista = filtrados.filter((p) => p.categoryId === c.id);
@@ -129,13 +137,13 @@
               </span>
             </span>
           </button>
-          <div class="prod__acciones">
+          ${editable ? `<div class="prod__acciones">
             <button type="button" class="mini" data-stock="${p.id}" title="${p.soldOut ? 'Marcar con stock' : 'Marcar sin stock'}">${p.soldOut ? 'Hay stock' : 'Sin stock'}</button>
             ${ordenable ? `<span class="flechas">
               <button type="button" class="mini" data-subir="${p.id}" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>↑</button>
               <button type="button" class="mini" data-bajar="${p.id}" aria-label="Bajar" ${i === lista.length - 1 ? 'disabled' : ''}>↓</button>
             </span>` : ''}
-          </div>
+          </div>` : ''}
         </li>`).join('')}</ul>`;
     }).join('');
     $('listaProductos').innerHTML = html || `<p class="vacio">${productos.length ? 'No hay productos que coincidan.' : 'Todavía no hay productos. Tocá “+ Nuevo producto”.'}</p>`;
@@ -188,7 +196,8 @@
     form.soldOut.checked = p ? p.soldOut : false;
     form.hidden.checked = p ? p.hidden : false;
     verFoto(p ? p.photo : null);
-    $('borrarProducto').hidden = !p || !puede.manage();
+    $('borrarProducto').hidden = !p || !puede.hacer('products_delete');
+    $('guardarProducto').hidden = !puede.hacer('products_edit');
     dlgProducto.showModal();
   }
 
@@ -418,8 +427,9 @@
     mostrarError($('errorUsuarios'), null);
     // Solo Pixel Cuyo crea administradores; la dueña crea vendedores.
     $('selRol').innerHTML = (puede.super() ? '<option value="admin">Administrador/a</option>' : '') + '<option value="vendedor" selected>Vendedor/a</option>';
-    $('ayudaRoles').textContent = 'Vendedor/a: carga y edita productos y stock, pero no borra ni toca categorías ni datos del negocio.' +
-      (puede.super() ? ' Administrador/a: maneja todo el catálogo y crea vendedores.' : '');
+    $('ayudaRoles').textContent = puede.super()
+      ? 'Lo que puede hacer cada nivel lo elegís en Menú → Niveles y permisos.'
+      : 'Los vendedores cargan productos y stock según los permisos que les dio Pixel Cuyo.';
     try {
       await pintarUsuarios();
       $('dlgUsuarios').showModal();
@@ -485,6 +495,45 @@
     } catch (err) { avisar(err.message); }
   });
 
+  // ---------- niveles y permisos (solo Pixel Cuyo) ----------
+  let nivelesRoles = null;
+
+  function pintarNiveles(permissions) {
+    $('tablaNiveles').innerHTML = permissions.map((p) => `
+      <tr>
+        <td>${escapar(p.label)}</td>
+        <td aria-label="Pixel Cuyo: sí">✅</td>
+        ${['admin', 'vendedor'].map((rol) => `
+          <td><input type="checkbox" data-rol="${rol}" data-permiso="${p.key}" ${nivelesRoles[rol][p.key] ? 'checked' : ''}
+                     aria-label="${rol === 'admin' ? 'Admin' : 'Vendedor'}: ${escapar(p.label)}"></td>`).join('')}
+      </tr>`).join('') + ['Crear administradores', 'Cambiarle la contraseña a un admin', 'Ver las contraseñas', 'Web en construcción / abrirla'].map((t) => `
+      <tr class="niveles__fijo"><td>${t}</td><td>✅</td><td>🔒</td><td>🔒</td></tr>`).join('');
+  }
+
+  $('menuNiveles').addEventListener('click', async () => {
+    $('dlgMenu').close();
+    try {
+      const { permissions, roles } = await api('GET', '/api/permissions');
+      nivelesRoles = roles;
+      pintarNiveles(permissions);
+      $('dlgNiveles').showModal();
+    } catch (err) { avisar(err.message); }
+  });
+
+  $('tablaNiveles').addEventListener('change', async (e) => {
+    const c = e.target.closest('[data-permiso]');
+    if (!c) return;
+    c.disabled = true;
+    try {
+      const { roles } = await api('PUT', '/api/permissions', { [c.dataset.rol]: { [c.dataset.permiso]: c.checked } });
+      nivelesRoles = roles;
+      avisar('Permiso guardado ✓');
+    } catch (err) {
+      c.checked = !c.checked;
+      avisar(err.message);
+    } finally { c.disabled = false; }
+  });
+
   // ---------- web en construcción (solo Pixel Cuyo) ----------
   $('menuObra').addEventListener('click', async () => {
     const abrir = enObra;
@@ -505,5 +554,5 @@
   });
 
   // ---------- arranque ----------
-  api('GET', '/api/me').then(({ user, maintenance }) => entrar(user, maintenance)).catch(() => mostrarLogin());
+  api('GET', '/api/me').then((me) => entrar(me.user, me)).catch(() => mostrarLogin());
 })();
