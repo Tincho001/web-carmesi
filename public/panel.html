@@ -140,6 +140,25 @@
       <h2>Usuarios</h2>
       <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
     </div>
+    <details class="niveles" open>
+      <summary>¿Qué puede hacer cada nivel?</summary>
+      <div class="niveles__tabla">
+        <table>
+          <thead><tr><th></th><th>Pixel Cuyo</th><th>Admin</th><th>Vendedor</th></tr></thead>
+          <tbody>
+            <tr><td>Cargar y editar productos y stock</td><td>✅</td><td>✅</td><td>✅</td></tr>
+            <tr><td>Borrar productos y manejar categorías</td><td>✅</td><td>✅</td><td>❌</td></tr>
+            <tr><td>WhatsApp e Instagram</td><td>✅</td><td>✅</td><td>❌</td></tr>
+            <tr><td>Ver el historial de cambios</td><td>✅</td><td>✅</td><td>❌</td></tr>
+            <tr><td>Crear vendedores y cambiarles la contraseña</td><td>✅</td><td>✅</td><td>❌</td></tr>
+            <tr><td>Crear administradores</td><td>✅</td><td>❌</td><td>❌</td></tr>
+            <tr><td>Cambiar la contraseña de un admin</td><td>✅</td><td>❌</td><td>❌</td></tr>
+            <tr><td>Web en construcción / abrirla al público</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="ayuda">El usuario de Pixel Cuyo tiene control total y no se puede borrar.</p>
+    </details>
     <ul class="usuarios" id="listaUsuarios"></ul>
     <form id="formUsuario" class="nuevo-usuario">
       <h3>Nuevo usuario</h3>
