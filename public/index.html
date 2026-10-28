@@ -79,7 +79,12 @@
   <!-- Detalle de producto -->
   <dialog class="detalle" id="detalle">
     <button class="cerrar" type="button" data-cerrar aria-label="Cerrar">×</button>
-    <img class="detalle__foto" id="detalleFoto" alt="">
+    <div class="detalle__galeria">
+      <div class="detalle__fotos" id="detalleFotos"></div>
+      <button class="detalle__flecha detalle__flecha--izq" type="button" id="fotoAnterior" aria-label="Foto anterior" hidden>‹</button>
+      <button class="detalle__flecha detalle__flecha--der" type="button" id="fotoSiguiente" aria-label="Foto siguiente" hidden>›</button>
+      <div class="detalle__puntos" id="detallePuntos" hidden></div>
+    </div>
     <div class="detalle__info">
       <p class="detalle__cat" id="detalleCat"></p>
       <h3 id="detalleNombre"></h3>

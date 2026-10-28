@@ -146,6 +146,13 @@
         </div>
       </div>
       <p class="ayuda" id="fondoEstado" hidden></p>
+      <div class="campo fotos-extra">
+        <span class="campo__titulo">Fotos <strong id="fotosN">1 de 4</strong></span>
+        <p class="aviso-fotos">📸 Cada producto puede tener <strong>hasta 4 fotos</strong>: de frente (la principal, la que se ve primero), de costado, por dentro y un detalle. En la tienda se pasan deslizando.</p>
+        <div class="tira" id="tiraFotos"></div>
+        <input type="file" id="extraCamara" accept="image/*" capture="environment" hidden>
+        <input type="file" id="extraGaleria" accept="image/*" hidden>
+      </div>
       <label>Nombre <input id="aNombre" maxlength="60" list="nombresUsados" placeholder="Cartera Moños" autocomplete="off"></label>
       <datalist id="nombresUsados"></datalist>
       <div class="campo">
@@ -174,6 +181,10 @@
     <div class="paso" id="paso3" hidden>
       <p class="ayuda">Así lo van a ver tus clientes:</p>
       <div class="vista" id="vistaPrevia"></div>
+      <div class="recordar-fotos" id="recordarFotos" hidden>
+        <span>📸 Tiene <strong id="recordarN">1 de 4</strong> fotos. ¿Le sumás otro ángulo?</span>
+        <button type="button" class="mini" id="irAFotos">＋ Sumar fotos</button>
+      </div>
       <p class="error" id="errorPaso3" hidden></p>
       <button type="button" class="btn btn--bordo btn--ancho" id="guardar">Guardar</button>
       <button type="button" class="btn btn--borde btn--ancho" id="guardarOtro">Guardar y cargar otro color</button>

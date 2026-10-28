@@ -226,7 +226,31 @@ dialog::backdrop { background: rgba(30, 8, 12, .6); }
 .detalle[open] { display: grid; }
 .detalle { position: fixed; max-height: 92dvh; overflow-x: hidden; overflow-y: auto; }
 .detalle .cerrar { position: absolute; top: 10px; right: 10px; z-index: 1; background: rgba(243, 235, 226, .85); }
-.detalle__foto { width: 100%; max-height: 60vh; object-fit: contain; background: var(--crema-foto); }
+/* Fotos del producto: carrusel que se desliza para los costados. */
+.detalle__galeria { position: relative; min-width: 0; background: var(--crema-foto); }
+.detalle__fotos {
+  display: flex; height: 100%; overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none; overscroll-behavior-x: contain;
+}
+.detalle__fotos::-webkit-scrollbar { display: none; }
+.detalle__fotos img { flex: 0 0 100%; width: 100%; max-height: 60vh; object-fit: contain; scroll-snap-align: center; }
+.detalle__puntos { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 7px; pointer-events: none; }
+.detalle__puntos span { width: 8px; height: 8px; border-radius: 50%; background: rgba(94, 26, 34, .25); transition: background .15s, transform .15s; }
+.detalle__puntos .on { background: var(--bordo); transform: scale(1.2); }
+.detalle__flecha {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 38px; height: 38px; border: 0; border-radius: 50%;
+  background: rgba(243, 235, 226, .85); color: var(--bordo); font-size: 24px; line-height: 1;
+  display: none;
+}
+.detalle__flecha--izq { left: 10px; }
+.detalle__flecha--der { right: 10px; }
+@media (hover: hover) { .detalle__flecha:not([hidden]) { display: grid; place-items: center; } }
+.tarjeta__fotos {
+  position: absolute; right: 8px; bottom: 8px;
+  padding: 3px 8px; border-radius: 999px;
+  background: rgba(43, 26, 28, .65); color: #fff; font-size: 11px; font-weight: 600;
+}
 .detalle__info { padding: 20px 22px 24px; display: flex; flex-direction: column; gap: 6px; }
 .detalle__info h3 { margin: 0; font-family: var(--serif); font-size: 30px; font-weight: 500; line-height: 1.1; }
 .detalle__cat { margin: 0; font-size: 11px; letter-spacing: .25em; text-transform: uppercase; color: var(--rojo); }
@@ -241,7 +265,7 @@ dialog::backdrop { background: rgba(30, 8, 12, .6); }
 .detalle__info .boton { width: 100%; }
 @media (min-width: 720px) {
   .detalle[open] { grid-template-columns: 1.1fr 1fr; }
-  .detalle__foto { height: 100%; max-height: 80vh; }
+  .detalle__fotos img { height: 100%; max-height: 80vh; }
   .detalle__info { justify-content: center; padding: 32px; }
 }
 

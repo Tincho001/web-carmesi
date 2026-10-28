@@ -53,6 +53,7 @@
         <button class="tarjeta__foto" type="button" data-ver="${p.id}" aria-label="Ver ${escapar(p.nombre)} ${escapar(p.color)}">
           <img src="${p.miniatura}" alt="${escapar(p.nombre)} ${escapar(p.color)}" loading="lazy" width="720" height="900">
           ${p.agotado ? '<span class="tarjeta__agotado">Sin stock</span>' : ''}
+          ${p.fotos && p.fotos.length > 1 ? `<span class="tarjeta__fotos">📷 ${p.fotos.length}</span>` : ''}
         </button>
         <h3 class="tarjeta__nombre">${escapar(p.nombre)}</h3>
         <p class="tarjeta__color">${escapar(p.color)}</p>
@@ -80,8 +81,16 @@
   function abrirDetalle(id) {
     const p = porId(id);
     enDetalle = p;
-    $('detalleFoto').src = p.foto;
-    $('detalleFoto').alt = `${p.nombre} ${p.color}`;
+    // Hasta 4 fotos: se pasan deslizando (o con las flechas en la compu).
+    const fotos = p.fotos && p.fotos.length ? p.fotos : [p.foto];
+    $('detalleFotos').innerHTML = fotos.map((src, i) =>
+      `<img src="${src}" alt="${escapar(p.nombre)} ${escapar(p.color)}${fotos.length > 1 ? ` (foto ${i + 1} de ${fotos.length})` : ''}">`).join('');
+    $('detalleFotos').scrollLeft = 0;
+    const varias = fotos.length > 1;
+    $('detallePuntos').hidden = !varias;
+    $('fotoAnterior').hidden = !varias;
+    $('fotoSiguiente').hidden = !varias;
+    $('detallePuntos').innerHTML = fotos.map((_, i) => `<span${i ? '' : ' class="on"'}></span>`).join('');
     $('detalleCat').textContent = nombreCategoria(p.categoria);
     $('detalleNombre').textContent = p.nombre;
     $('detalleColor').textContent = p.color;
@@ -93,6 +102,14 @@
     $('detalleConsultar').href = urlWhatsapp(`¡Hola Carmesí! Me interesa la ${p.nombre} (${p.color}) de ${plata(p.precio)}. ¿Está disponible?`);
     detalle.showModal();
   }
+  const carrusel = $('detalleFotos');
+  carrusel.addEventListener('scroll', () => {
+    const i = Math.round(carrusel.scrollLeft / carrusel.clientWidth);
+    $('detallePuntos').querySelectorAll('span').forEach((s, k) => s.classList.toggle('on', k === i));
+  });
+  $('fotoAnterior').addEventListener('click', () => carrusel.scrollBy({ left: -carrusel.clientWidth, behavior: 'smooth' }));
+  $('fotoSiguiente').addEventListener('click', () => carrusel.scrollBy({ left: carrusel.clientWidth, behavior: 'smooth' }));
+
   $('detalleAgregar').addEventListener('click', () => {
     agregarAlPedido(enDetalle.id);
     detalle.close();

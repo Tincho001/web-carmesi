@@ -390,3 +390,23 @@ button { cursor: pointer; }
 .ficha__sin-desc { margin: 0 0 12px; font-size: 12.5px; color: var(--gris); font-style: italic; }
 .vista__desc { margin: 4px 0 10px; padding: 8px 10px; border-radius: 8px; background: rgba(246, 239, 230, .1); font-size: 12px; line-height: 1.45; text-align: left; white-space: pre-line; }
 .vista__desc span { display: block; margin-bottom: 2px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+
+/* ---------- Hasta 4 fotos ---------- */
+.aviso-fotos { margin: 0; padding: 10px 12px; border-radius: 12px; background: #fbf1dd; color: #6b4a12; font-size: 12.5px; line-height: 1.45; }
+.tira { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.tira__foto { position: relative; aspect-ratio: 4 / 5; border-radius: 10px; overflow: hidden; background: var(--crema); }
+.tira__foto img { width: 100%; height: 100%; object-fit: cover; }
+.tira__foto--principal span { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 0; background: rgba(94, 26, 34, .85); color: var(--crema); font-size: 10px; font-weight: 600; text-align: center; }
+.tira__quitar { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border: 0; border-radius: 50%; background: rgba(43, 26, 28, .7); color: #fff; font-size: 12px; line-height: 1; }
+.tira__sumar { display: grid; align-content: center; justify-items: center; gap: 4px; aspect-ratio: 4 / 5; border: 2px dashed #d9c3b5; border-radius: 10px; background: #fff; }
+.tira__sumar span { font-size: 11px; font-weight: 600; color: var(--bordo); }
+.tira__sumar .mini { width: 40px; padding: 0; font-size: 16px; min-height: 30px; }
+.recordar-fotos { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #fbf1dd; color: #6b4a12; font-size: 13px; }
+.marca--fotos { position: absolute; right: 8px; bottom: 8px; left: auto !important; top: auto !important; background: rgba(43, 26, 28, .7); color: #fff; }
+.carrusel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: 14px; margin: 10px 0 0; }
+.carrusel::-webkit-scrollbar { display: none; }
+.carrusel .ficha__foto { flex: 0 0 100%; margin: 0; scroll-snap-align: center; border-radius: 0; }
+.puntos { display: flex; justify-content: center; gap: 6px; margin: 8px 0 0; }
+.puntos span { width: 7px; height: 7px; border-radius: 50%; background: var(--linea); transition: background .15s; }
+.puntos .on { background: var(--bordo); }
+.ficha__fotos { margin: 6px 0 8px; font-size: 12px; color: var(--gris); text-align: center; }

@@ -297,6 +297,10 @@ async function initDb() {
   if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'description')) {
     await db.execute("ALTER TABLE products ADD COLUMN description TEXT NOT NULL DEFAULT ''");
   }
+  // Fotos extra de cada producto (otros ángulos): lista de archivos en JSON, hasta 3.
+  if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'gallery')) {
+    await db.execute("ALTER TABLE products ADD COLUMN gallery TEXT NOT NULL DEFAULT '[]'");
+  }
 
   // Rol de quien hizo cada cambio: así lo de Pixel Cuyo no se le muestra a la dueña.
   const actCols = (await db.execute('PRAGMA table_info(activity)')).rows.map((r) => r.name);
@@ -507,17 +511,43 @@ async function describeProductChanges(before, after) {
   if (before.category_id !== after.category_id) out.push(`categoría: ${await categoryName(before.category_id)} → ${await categoryName(after.category_id)}`);
   if (before.sold_out !== after.sold_out) out.push(after.sold_out ? 'marcado sin stock' : 'marcado con stock');
   if (before.hidden !== after.hidden) out.push(after.hidden ? 'oculto de la web' : 'visible en la web');
-  if (before.photo !== after.photo) out.push('foto nueva');
+  if (before.photo !== after.photo) out.push('foto principal nueva');
+  const antes = galleryOf(before), despues = galleryOf(after);
+  if (antes.join() !== despues.join()) out.push(`fotos: ${antes.length + 1} → ${despues.length + 1}`);
   return out;
 }
 
 const productLabel = (p) => (p.color ? `${p.name} (${p.color})` : p.name);
 const photoUrl = (file) => (file ? `/uploads/${file}` : null);
 
+const MAX_EXTRA_PHOTOS = 3; // + la principal = 4 fotos por producto
+
+function galleryOf(p) {
+  try {
+    const g = JSON.parse(p.gallery || '[]');
+    return Array.isArray(g) ? g.filter((f) => /^[\w-]+\.(jpg|webp)$/.test(f)) : [];
+  } catch { return []; }
+}
+
+// Las fotos extra llegan en orden: "/uploads/archivo.jpg" (ya estaba) o una foto nueva (data URL).
+function saveGallery(list, before) {
+  if (!Array.isArray(list)) return before;
+  if (list.length > MAX_EXTRA_PHOTOS) throw new HttpError(400, `Son hasta ${MAX_EXTRA_PHOTOS + 1} fotos por producto`);
+  return list.map((item, i) => {
+    const vieja = String(item).match(/^\/uploads\/([\w-]+\.(?:jpg|webp))$/);
+    if (vieja) {
+      if (!before.includes(vieja[1])) throw new HttpError(400, 'Foto inválida');
+      return vieja[1];
+    }
+    return saveImage(item, `${newPhotoName()}-${i + 1}`);
+  });
+}
+
 function adminProduct(p) {
   return {
     id: p.id, name: p.name, color: p.color, description: p.description || '', categoryId: p.category_id, price: p.price,
     photo: photoUrl(p.photo), thumb: photoUrl(p.thumb || p.photo),
+    gallery: galleryOf(p).map(photoUrl),
     soldOut: !!p.sold_out, hidden: !!p.hidden, position: p.position,
     updatedBy: p.updated_by, updatedAt: p.updated_at,
   };
@@ -535,6 +565,7 @@ async function publicCatalog() {
     productos: prods.map((p) => ({
       id: String(p.id), nombre: p.name, color: p.color, descripcion: p.description || '', categoria: String(p.category_id), precio: p.price,
       foto: photoUrl(p.photo), miniatura: photoUrl(p.thumb || p.photo), agotado: !!p.sold_out,
+      fotos: [p.photo, ...galleryOf(p)].filter(Boolean).map(photoUrl),
     })),
   };
 }
@@ -761,12 +792,13 @@ async function handleApi(req, res, url) {
     const base = newPhotoName();
     const photo = saveImage(p.body.photo, base);
     const thumb = p.body.thumb ? saveImage(p.body.thumb, `${base}-t`) : null;
+    const gallery = saveGallery(p.body.gallery, []);
     // Los nuevos aparecen primeros dentro de su categoría.
     const pos = Number((await db.execute({ sql: 'SELECT COALESCE(MIN(position), 1) - 1 AS n FROM products WHERE category_id = ?', args: [p.categoryId] })).rows[0].n);
     const r = await db.execute({
-      sql: `INSERT INTO products (name, color, description, category_id, price, photo, thumb, sold_out, hidden, position, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-      args: [p.name, p.color, p.description, p.categoryId, p.price, photo, thumb, p.soldOut, p.hidden, pos, user.username, Date.now()],
+      sql: `INSERT INTO products (name, color, description, category_id, price, photo, thumb, gallery, sold_out, hidden, position, updated_by, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      args: [p.name, p.color, p.description, p.categoryId, p.price, photo, thumb, JSON.stringify(gallery), p.soldOut, p.hidden, pos, user.username, Date.now()],
     });
     await logActivity('product', r.rows[0].id, productLabel(r.rows[0]), user, 'create');
     return send(res, 201, { product: adminProduct(r.rows[0]) });
@@ -811,12 +843,15 @@ async function handleApi(req, res, url) {
         photo = saveImage(p.body.photo, base);
         thumb = p.body.thumb ? saveImage(p.body.thumb, `${base}-t`) : null;
       }
+      const galleryBefore = galleryOf(existing);
+      const gallery = saveGallery(p.body.gallery, galleryBefore);
       const r = await db.execute({
-        sql: `UPDATE products SET name = ?, color = ?, description = ?, category_id = ?, price = ?, photo = ?, thumb = ?, sold_out = ?, hidden = ?, updated_by = ?, updated_at = ?
+        sql: `UPDATE products SET name = ?, color = ?, description = ?, category_id = ?, price = ?, photo = ?, thumb = ?, gallery = ?, sold_out = ?, hidden = ?, updated_by = ?, updated_at = ?
               WHERE id = ? RETURNING *`,
-        args: [p.name, p.color, p.description, p.categoryId, p.price, photo, thumb, p.soldOut, p.hidden, user.username, Date.now(), id],
+        args: [p.name, p.color, p.description, p.categoryId, p.price, photo, thumb, JSON.stringify(gallery), p.soldOut, p.hidden, user.username, Date.now(), id],
       });
       if (photo !== existing.photo) { removeUpload(existing.photo); removeUpload(existing.thumb); }
+      galleryBefore.filter((f) => !gallery.includes(f)).forEach(removeUpload);
       const changes = await describeProductChanges(existing, r.rows[0]);
       if (changes.length) await logActivity('product', id, productLabel(r.rows[0]), user, 'update', changes);
       return send(res, 200, { product: adminProduct(r.rows[0]) });
@@ -828,6 +863,7 @@ async function handleApi(req, res, url) {
       await logActivity('product', id, productLabel(existing), user, 'delete');
       removeUpload(existing.photo);
       removeUpload(existing.thumb);
+      galleryOf(existing).forEach(removeUpload);
       return send(res, 200, { ok: true });
     }
   }

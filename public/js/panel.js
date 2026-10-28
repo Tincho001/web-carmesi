@@ -281,7 +281,11 @@
     const i = deSuCat.findIndex((x) => x.id === p.id);
     $('fichaTitulo').textContent = p.name;
     $('fichaCuerpo').innerHTML = `
-      <img class="ficha__foto" src="${p.photo || ''}" alt="">
+      <div class="carrusel" data-carrusel>
+        ${[p.photo, ...(p.gallery || [])].filter(Boolean).map((src) => `<img class="ficha__foto" src="${src}" alt="">`).join('')}
+      </div>
+      ${(p.gallery || []).length ? `<div class="puntos">${[p.photo, ...p.gallery].map((_, i) => `<span${i ? '' : ' class="on"'}></span>`).join('')}</div>` : ''}
+      <p class="ficha__fotos">📷 ${1 + (p.gallery || []).length} de ${MAX_FOTOS} fotos${(p.gallery || []).length < MAX_FOTOS - 1 && edita ? ' · sumá más con ✏️ Editar' : ''}</p>
       <p class="ficha__datos">${escapar(p.color)}${p.color ? ' · ' : ''}<strong>${plata(p.price)}</strong></p>
       <p class="ficha__cat">${escapar(nombreCat(p.categoryId))}</p>
       ${p.description ? `<p class="ficha__desc">${escapar(p.description)}</p>` : (edita ? '<p class="ficha__sin-desc">Sin descripción. Tocá ✏️ Editar para agregar medidas, material o detalles.</p>' : '')}
@@ -299,6 +303,14 @@
         </div>` : ''}
       ${puede.hacer('products_delete') ? '<button type="button" class="btn btn--borrar btn--ancho" data-accion="borrar">Borrar producto</button>' : ''}`;
   }
+
+  // Puntitos del carrusel según la foto que se ve.
+  $('fichaCuerpo').addEventListener('scroll', (e) => {
+    const c = e.target.closest && e.target.closest('[data-carrusel]');
+    if (!c) return;
+    const i = Math.round(c.scrollLeft / c.clientWidth);
+    c.parentElement.querySelectorAll('.puntos span').forEach((p, k) => p.classList.toggle('on', k === i));
+  }, true);
 
   $('fichaCuerpo').addEventListener('change', async (e) => {
     const sw = e.target.closest('[data-sw]');
@@ -354,6 +366,7 @@
       id: modo === 'editar' ? base.id : null,
       foto: null,
       fotoActual: modo === 'editar' ? base.photo : null,
+      extras: modo === 'editar' ? (base.gallery || []).slice() : [],
       categoryId: base.categoryId || (filtroCat ? filtroCat.id : categorias[0].id),
     };
     $('asistTitulo').textContent = modo === 'editar' ? 'Editar producto' : modo === 'variante' ? 'Otro color' : 'Nuevo producto';
@@ -367,8 +380,8 @@
     $('aOculto').checked = modo === 'editar' ? base.hidden : false;
     $('guardarOtro').hidden = modo === 'editar';
     $('paso1Ayuda').textContent = modo === 'variante'
-      ? `Sacale la foto a la ${base.name} del color nuevo. El nombre, el precio y la categoría ya quedan cargados.`
-      : 'Tip: foto con buena luz y fondo liso, la cartera centrada.';
+      ? `Sacale la foto a la ${base.name} del color nuevo. El nombre, el precio y la categoría ya quedan cargados. Después podés sumar hasta 3 fotos más.`
+      : '📸 Cada producto lleva hasta 4 fotos. Empezá por la principal (de frente, buena luz y fondo liso); en el paso siguiente sumás las otras.';
     $('nombresUsados').innerHTML = [...new Set(productos.map((x) => x.name))].map((n) => `<option value="${escapar(n)}">`).join('');
     mostrarError($('errorPaso2'), null);
     mostrarError($('errorPaso3'), null);
@@ -383,7 +396,7 @@
     [1, 2, 3].forEach((k) => { $(`paso${k}`).hidden = k !== n; });
     $('asistPasos').querySelectorAll('span').forEach((s, k) => s.classList.toggle('hecho', k < n));
     $('asistPasos').hidden = as.modo === 'editar';
-    if (n === 2) pintarChips();
+    if (n === 2) { pintarChips(); pintarTira(); }
     if (n === 3) pintarVista();
     dlgA.scrollTop = 0;
   }
@@ -403,6 +416,7 @@
     $('paso1Seguir').hidden = !src;
     $('miniFoto').hidden = !src;
     if (src) $('miniFotoImg').src = src;
+    if (as) pintarTira();
   }
 
   // La foto se achica en el celu antes de subirla (más rápido y no llena el servidor).
@@ -598,8 +612,59 @@
       price: $('aPrecio').value.replace(/\D/g, ''),
       soldOut: $('aSinStock').checked,
       hidden: $('aOculto').checked,
+      gallery: as.extras.slice(),
     };
   }
+
+  // ---------- fotos extra: hasta 4 por producto (la principal + 3) ----------
+  const MAX_FOTOS = 4;
+  const totalFotos = () => (fotoDe() ? 1 : 0) + as.extras.length;
+
+  function pintarTira() {
+    const n = totalFotos();
+    $('fotosN').textContent = `${n} de ${MAX_FOTOS}`;
+    const principal = fotoDe() ? `<div class="tira__foto tira__foto--principal"><img src="${fotoDe()}" alt=""><span>Principal</span></div>` : '';
+    const extras = as.extras.map((src, i) => `
+      <div class="tira__foto">
+        <img src="${src}" alt="">
+        <button type="button" class="tira__quitar" data-quitar-extra="${i}" aria-label="Sacar esta foto">✕</button>
+      </div>`).join('');
+    const sumar = n < MAX_FOTOS ? `
+      <div class="tira__sumar">
+        <span>＋ Foto ${n + 1}</span>
+        <button type="button" class="mini" data-extra="camara">📷</button>
+        <button type="button" class="mini" data-extra="galeria">🖼️</button>
+      </div>` : '';
+    $('tiraFotos').innerHTML = principal + extras + sumar;
+  }
+
+  $('tiraFotos').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.extra) return $(b.dataset.extra === 'camara' ? 'extraCamara' : 'extraGaleria').click();
+    if (b.dataset.quitarExtra !== undefined) {
+      as.extras.splice(Number(b.dataset.quitarExtra), 1);
+      pintarTira();
+    }
+  });
+
+  async function extraElegida(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file || totalFotos() >= MAX_FOTOS) return;
+    try {
+      as.extras.push(await achicar(file, 1280, 0.82));
+      pintarTira();
+      if (totalFotos() === MAX_FOTOS) avisar('¡Listo, 4 de 4 fotos! 📸');
+    } catch (err) { avisar(err.message); }
+  }
+  $('extraCamara').addEventListener('change', extraElegida);
+  $('extraGaleria').addEventListener('change', extraElegida);
+
+  $('irAFotos').addEventListener('click', () => {
+    paso(2);
+    setTimeout(() => $('tiraFotos').scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+  });
 
   $('paso2Seguir').addEventListener('click', () => {
     const d = datosAsistente();
@@ -611,13 +676,16 @@
   function pintarVista() {
     const d = datosAsistente();
     $('vistaPrevia').innerHTML = `
-      <div class="vista__foto"><img src="${fotoDe()}" alt="">${d.soldOut ? '<em class="marca marca--stock">Sin stock</em>' : ''}</div>
+      <div class="vista__foto"><img src="${fotoDe()}" alt="">${d.soldOut ? '<em class="marca marca--stock">Sin stock</em>' : ''}${totalFotos() > 1 ? `<em class="marca marca--fotos">📷 ${totalFotos()}</em>` : ''}</div>
       <p class="vista__nombre">${escapar(d.name)}</p>
       <p class="vista__color">${escapar(d.color)}</p>
       <p class="vista__precio">${plata(d.price)}</p>
       ${d.description ? `<p class="vista__desc"><span>Al tocarla, ven también:</span>${escapar(d.description)}</p>` : ''}
       <span class="vista__boton">${d.soldOut ? 'Sin stock' : 'Agregar al pedido'}</span>
       ${d.hidden ? '<p class="ayuda">Está marcado como oculto: no se va a ver en la web hasta que lo muestres.</p>' : ''}`;
+    const n = totalFotos();
+    $('recordarFotos').hidden = n >= MAX_FOTOS;
+    $('recordarN').textContent = `${n} de ${MAX_FOTOS}`;
   }
 
   async function guardar(otroColor) {
@@ -630,7 +698,9 @@
         ? await api('PUT', `/api/products/${as.id}`, datos)
         : await api('POST', '/api/products', datos);
       await cargar();
-      avisar(as.modo === 'editar' ? 'Cambios guardados ✓' : 'Producto agregado ✓');
+      const fotos = 1 + (product.gallery || []).length;
+      avisar(as.modo === 'editar' ? 'Cambios guardados ✓'
+        : fotos < MAX_FOTOS ? `Producto agregado ✓ (${fotos} de ${MAX_FOTOS} fotos: podés sumar más desde Editar)` : 'Producto agregado ✓ con 4 fotos');
       if (otroColor) abrirAsistente({ modo: 'variante', p: product });
       else dlgA.close();
     } catch (err) {
