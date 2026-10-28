@@ -293,6 +293,10 @@ async function initDb() {
   if (!userCols.includes('pass_view')) await db.execute('ALTER TABLE users ADD COLUMN pass_view TEXT');
   // Quién creó cada usuario: una admin maneja solo a los subadmins que creó ella.
   if (!userCols.includes('created_by_id')) await db.execute('ALTER TABLE users ADD COLUMN created_by_id INTEGER');
+  // Descripción opcional de cada producto (medidas, material, detalles).
+  if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'description')) {
+    await db.execute("ALTER TABLE products ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+  }
 
   // Rol de quien hizo cada cambio: así lo de Pixel Cuyo no se le muestra a la dueña.
   const actCols = (await db.execute('PRAGMA table_info(activity)')).rows.map((r) => r.name);
@@ -498,6 +502,7 @@ async function describeProductChanges(before, after) {
   const plata = (n) => '$' + Number(n).toLocaleString('es-AR');
   if (before.name !== after.name) out.push(`nombre: "${before.name}" → "${after.name}"`);
   if (before.color !== after.color) out.push(`color: "${before.color}" → "${after.color}"`);
+  if ((before.description || '') !== (after.description || '')) out.push(after.description ? 'descripción nueva' : 'descripción borrada');
   if (before.price !== after.price) out.push(`precio: ${plata(before.price)} → ${plata(after.price)}`);
   if (before.category_id !== after.category_id) out.push(`categoría: ${await categoryName(before.category_id)} → ${await categoryName(after.category_id)}`);
   if (before.sold_out !== after.sold_out) out.push(after.sold_out ? 'marcado sin stock' : 'marcado con stock');
@@ -511,7 +516,7 @@ const photoUrl = (file) => (file ? `/uploads/${file}` : null);
 
 function adminProduct(p) {
   return {
-    id: p.id, name: p.name, color: p.color, categoryId: p.category_id, price: p.price,
+    id: p.id, name: p.name, color: p.color, description: p.description || '', categoryId: p.category_id, price: p.price,
     photo: photoUrl(p.photo), thumb: photoUrl(p.thumb || p.photo),
     soldOut: !!p.sold_out, hidden: !!p.hidden, position: p.position,
     updatedBy: p.updated_by, updatedAt: p.updated_at,
@@ -528,10 +533,20 @@ async function publicCatalog() {
     ...(await getSettings()),
     categorias: cats.map((c) => ({ id: String(c.id), nombre: c.name })),
     productos: prods.map((p) => ({
-      id: String(p.id), nombre: p.name, color: p.color, categoria: String(p.category_id), precio: p.price,
+      id: String(p.id), nombre: p.name, color: p.color, descripcion: p.description || '', categoria: String(p.category_id), precio: p.price,
       foto: photoUrl(p.photo), miniatura: photoUrl(p.thumb || p.photo), agotado: !!p.sold_out,
     })),
   };
+}
+
+// Texto libre con renglones: se limpian espacios de más y se corta en 1000 caracteres.
+function cleanDescription(value) {
+  return String(value || '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim()).join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, 1000);
 }
 
 async function readProductBody(req) {
@@ -540,6 +555,7 @@ async function readProductBody(req) {
     body,
     name: cleanName(body.name, 'del producto'),
     color: cleanText(body.color, 60),
+    description: cleanDescription(body.description),
     categoryId: await checkCategoryId(body.categoryId),
     price: parsePrice(body.price),
     soldOut: body.soldOut ? 1 : 0,
@@ -748,9 +764,9 @@ async function handleApi(req, res, url) {
     // Los nuevos aparecen primeros dentro de su categoría.
     const pos = Number((await db.execute({ sql: 'SELECT COALESCE(MIN(position), 1) - 1 AS n FROM products WHERE category_id = ?', args: [p.categoryId] })).rows[0].n);
     const r = await db.execute({
-      sql: `INSERT INTO products (name, color, category_id, price, photo, thumb, sold_out, hidden, position, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-      args: [p.name, p.color, p.categoryId, p.price, photo, thumb, p.soldOut, p.hidden, pos, user.username, Date.now()],
+      sql: `INSERT INTO products (name, color, description, category_id, price, photo, thumb, sold_out, hidden, position, updated_by, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      args: [p.name, p.color, p.description, p.categoryId, p.price, photo, thumb, p.soldOut, p.hidden, pos, user.username, Date.now()],
     });
     await logActivity('product', r.rows[0].id, productLabel(r.rows[0]), user, 'create');
     return send(res, 201, { product: adminProduct(r.rows[0]) });
@@ -796,9 +812,9 @@ async function handleApi(req, res, url) {
         thumb = p.body.thumb ? saveImage(p.body.thumb, `${base}-t`) : null;
       }
       const r = await db.execute({
-        sql: `UPDATE products SET name = ?, color = ?, category_id = ?, price = ?, photo = ?, thumb = ?, sold_out = ?, hidden = ?, updated_by = ?, updated_at = ?
+        sql: `UPDATE products SET name = ?, color = ?, description = ?, category_id = ?, price = ?, photo = ?, thumb = ?, sold_out = ?, hidden = ?, updated_by = ?, updated_at = ?
               WHERE id = ? RETURNING *`,
-        args: [p.name, p.color, p.categoryId, p.price, photo, thumb, p.soldOut, p.hidden, user.username, Date.now(), id],
+        args: [p.name, p.color, p.description, p.categoryId, p.price, photo, thumb, p.soldOut, p.hidden, user.username, Date.now(), id],
       });
       if (photo !== existing.photo) { removeUpload(existing.photo); removeUpload(existing.thumb); }
       const changes = await describeProductChanges(existing, r.rows[0]);

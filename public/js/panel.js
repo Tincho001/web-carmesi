@@ -284,6 +284,7 @@
       <img class="ficha__foto" src="${p.photo || ''}" alt="">
       <p class="ficha__datos">${escapar(p.color)}${p.color ? ' · ' : ''}<strong>${plata(p.price)}</strong></p>
       <p class="ficha__cat">${escapar(nombreCat(p.categoryId))}</p>
+      ${p.description ? `<p class="ficha__desc">${escapar(p.description)}</p>` : (edita ? '<p class="ficha__sin-desc">Sin descripción. Tocá ✏️ Editar para agregar medidas, material o detalles.</p>' : '')}
       ${edita ? `
         <label class="switch"><input type="checkbox" data-sw="soldOut" ${p.soldOut ? 'checked' : ''}><span></span> Sin stock <small>se ve, pero no se puede pedir</small></label>
         <label class="switch"><input type="checkbox" data-sw="hidden" ${p.hidden ? 'checked' : ''}><span></span> Oculto <small>no aparece en la web</small></label>
@@ -358,6 +359,9 @@
     $('asistTitulo').textContent = modo === 'editar' ? 'Editar producto' : modo === 'variante' ? 'Otro color' : 'Nuevo producto';
     $('aNombre').value = base.name || '';
     $('aColor').value = modo === 'editar' ? base.color : '';
+    // Otro color del mismo modelo: la descripción (medidas, material) suele ser la misma.
+    $('aDesc').value = base.description || '';
+    contarDesc();
     $('aPrecio').value = base.price ? Number(base.price).toLocaleString('es-AR') : '';
     $('aSinStock').checked = modo === 'editar' ? base.soldOut : false;
     $('aOculto').checked = modo === 'editar' ? base.hidden : false;
@@ -574,6 +578,11 @@
     }
   });
 
+  function contarDesc() {
+    $('aDescN').textContent = `${$('aDesc').value.length} / 1000`;
+  }
+  $('aDesc').addEventListener('input', contarDesc);
+
   // El precio se ve con puntos mientras se escribe: 22000 → 22.000
   $('aPrecio').addEventListener('input', () => {
     const n = $('aPrecio').value.replace(/\D/g, '').slice(0, 9);
@@ -584,6 +593,7 @@
     return {
       name: $('aNombre').value.replace(/\s+/g, ' ').trim(),
       color: $('aColor').value.replace(/\s+/g, ' ').trim(),
+      description: $('aDesc').value.trim(),
       categoryId: as.categoryId,
       price: $('aPrecio').value.replace(/\D/g, ''),
       soldOut: $('aSinStock').checked,
@@ -605,6 +615,7 @@
       <p class="vista__nombre">${escapar(d.name)}</p>
       <p class="vista__color">${escapar(d.color)}</p>
       <p class="vista__precio">${plata(d.price)}</p>
+      ${d.description ? `<p class="vista__desc"><span>Al tocarla, ven también:</span>${escapar(d.description)}</p>` : ''}
       <span class="vista__boton">${d.soldOut ? 'Sin stock' : 'Agregar al pedido'}</span>
       ${d.hidden ? '<p class="ayuda">Está marcado como oculto: no se va a ver en la web hasta que lo muestres.</p>' : ''}`;
   }

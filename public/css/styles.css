@@ -224,7 +224,7 @@ dialog::backdrop { background: rgba(30, 8, 12, .6); }
 }
 
 .detalle[open] { display: grid; }
-.detalle { position: fixed; overflow: hidden; }
+.detalle { position: fixed; max-height: 92dvh; overflow-x: hidden; overflow-y: auto; }
 .detalle .cerrar { position: absolute; top: 10px; right: 10px; z-index: 1; background: rgba(243, 235, 226, .85); }
 .detalle__foto { width: 100%; max-height: 60vh; object-fit: contain; background: var(--crema-foto); }
 .detalle__info { padding: 20px 22px 24px; display: flex; flex-direction: column; gap: 6px; }
@@ -232,6 +232,12 @@ dialog::backdrop { background: rgba(30, 8, 12, .6); }
 .detalle__cat { margin: 0; font-size: 11px; letter-spacing: .25em; text-transform: uppercase; color: var(--rojo); }
 .detalle__color { margin: 0; color: var(--gris); }
 .detalle__precio { margin: 6px 0 12px; font-size: 24px; font-weight: 500; }
+/* Descripción opcional: respeta los renglones que escribió la dueña. */
+.detalle__desc {
+  margin: -4px 0 14px; padding: 12px 14px;
+  border-left: 2px solid var(--rojo); background: rgba(94, 26, 34, .05);
+  font-size: 14px; line-height: 1.6; white-space: pre-line; color: var(--tinta);
+}
 .detalle__info .boton { width: 100%; }
 @media (min-width: 720px) {
   .detalle[open] { grid-template-columns: 1.1fr 1fr; }

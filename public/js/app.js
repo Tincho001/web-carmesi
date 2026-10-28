@@ -86,6 +86,8 @@
     $('detalleNombre').textContent = p.nombre;
     $('detalleColor').textContent = p.color;
     $('detallePrecio').textContent = plata(p.precio);
+    $('detalleDesc').textContent = p.descripcion || '';
+    $('detalleDesc').hidden = !p.descripcion;
     $('detalleAgregar').disabled = !!p.agotado;
     $('detalleAgregar').textContent = p.agotado ? 'Sin stock' : 'Agregar al pedido';
     $('detalleConsultar').href = urlWhatsapp(`¡Hola Carmesí! Me interesa la ${p.nombre} (${p.color}) de ${plata(p.precio)}. ¿Está disponible?`);
