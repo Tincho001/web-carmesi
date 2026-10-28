@@ -59,6 +59,40 @@ function getOrCreateSecret() {
   return s;
 }
 
+// Copia cifrada de cada contraseña para que Pixel Cuyo pueda verlas desde el panel.
+// El login sigue usando el hash; esto solo sirve para mostrarlas. Llave propia en DATA_DIR.
+const VAULT_KEY = (() => {
+  const file = path.join(DATA_DIR, 'vault-key');
+  let k = readText(file).trim();
+  if (!k) {
+    k = crypto.randomBytes(32).toString('hex');
+    fs.writeFileSync(file, k, { mode: 0o600 });
+  }
+  return Buffer.from(k, 'hex');
+})();
+
+function sealPassword(password) {
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv('aes-256-gcm', VAULT_KEY, iv);
+  const data = Buffer.concat([c.update(String(password), 'utf8'), c.final()]);
+  return [iv, c.getAuthTag(), data].map((b) => b.toString('base64')).join('.');
+}
+
+function openPassword(sealed) {
+  try {
+    const [iv, tag, data] = String(sealed || '').split('.').map((s) => Buffer.from(s, 'base64'));
+    const d = crypto.createDecipheriv('aes-256-gcm', VAULT_KEY, iv);
+    d.setAuthTag(tag);
+    return Buffer.concat([d.update(data), d.final()]).toString('utf8');
+  } catch { return null; }
+}
+
+async function setPassword(userId, password) {
+  const passHash = hashPassword(password);
+  await db.execute({ sql: 'UPDATE users SET pass_hash = ?, pass_view = ? WHERE id = ?', args: [passHash, sealPassword(password), userId] });
+  return passHash;
+}
+
 function hashPassword(password) {
   const salt = crypto.randomBytes(16);
   const hash = crypto.scryptSync(password, salt, 32);
@@ -253,8 +287,19 @@ async function initDb() {
     'CREATE INDEX IF NOT EXISTS activity_by_at ON activity (at)',
   ], 'write');
 
-  if (!(await db.execute('PRAGMA table_info(users)')).rows.some((r) => r.name === 'alias')) {
-    await db.execute("ALTER TABLE users ADD COLUMN alias TEXT NOT NULL DEFAULT ''");
+  const userCols = (await db.execute('PRAGMA table_info(users)')).rows.map((r) => r.name);
+  if (!userCols.includes('alias')) await db.execute("ALTER TABLE users ADD COLUMN alias TEXT NOT NULL DEFAULT ''");
+  if (!userCols.includes('pass_view')) await db.execute('ALTER TABLE users ADD COLUMN pass_view TEXT');
+
+  // Recupera las contraseñas iniciales que siguen vigentes (las que nadie cambió todavía).
+  const initial = readText(path.join(DATA_DIR, 'contrasenas-iniciales.txt'));
+  if (initial) {
+    const sinCopia = (await db.execute('SELECT id, username, pass_hash FROM users WHERE pass_view IS NULL')).rows;
+    for (const u of sinCopia) {
+      const name = u.username.replace(/[.\-]/g, '\\$&');
+      const vigente = [...initial.matchAll(new RegExp(`^${name}: (\\S+)$`, 'gm'))].map((m) => m[1]).find((p) => checkPassword(p, u.pass_hash));
+      if (vigente) await db.execute({ sql: 'UPDATE users SET pass_view = ? WHERE id = ?', args: [sealPassword(vigente), u.id] });
+    }
   }
 
   // Roles viejos (admin = Pixel Cuyo, duena = Valentina) → super / admin. Una sola vez.
@@ -295,7 +340,7 @@ async function initDb() {
     const created = [];
     for (const u of USERS) {
       const pass = process.env[u.envPass] || randomPassword();
-      await db.execute({ sql: 'INSERT OR IGNORE INTO users (username, role, alias, pass_hash) VALUES (?, ?, ?, ?)', args: [u.username, u.role, u.alias, hashPassword(pass)] });
+      await db.execute({ sql: 'INSERT OR IGNORE INTO users (username, role, alias, pass_hash, pass_view) VALUES (?, ?, ?, ?, ?)', args: [u.username, u.role, u.alias, hashPassword(pass), sealPassword(pass)] });
       created.push(`${u.username}: ${pass}`);
     }
     await setMeta('users_seeded', '1');
@@ -471,6 +516,8 @@ async function handleApi(req, res, url) {
       throw new HttpError(401, 'Usuario o contraseña incorrectos');
     }
     loginFails.delete(ip);
+    // Contraseñas puestas antes de existir la copia cifrada: se guardan al entrar.
+    if (!user.pass_view) await db.execute({ sql: 'UPDATE users SET pass_view = ? WHERE id = ?', args: [sealPassword(String(body.password)), user.id] });
     return send(res, 200, { user: publicUser(user) }, { 'Set-Cookie': sessionCookie(req, makeToken(user), SESSION_DAYS * 86400) });
   }
 
@@ -486,8 +533,7 @@ async function handleApi(req, res, url) {
   if (route === 'PUT /api/me/password') {
     const body = await readJson(req);
     if (!checkPassword(String(body.current || ''), user.pass_hash)) throw new HttpError(400, 'La contraseña actual no es correcta');
-    const passHash = hashPassword(cleanPassword(body.password));
-    await db.execute({ sql: 'UPDATE users SET pass_hash = ? WHERE id = ?', args: [passHash, user.id] });
+    const passHash = await setPassword(user.id, cleanPassword(body.password));
     await logActivity('user', user.id, user.username, user, 'update', ['cambió su contraseña']);
     return send(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req, makeToken({ ...user, pass_hash: passHash }), SESSION_DAYS * 86400) });
   }
@@ -678,7 +724,12 @@ async function handleApi(req, res, url) {
     requireRole(can.manage(user));
     const r = await db.execute("SELECT * FROM users ORDER BY CASE role WHEN 'super' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, username");
     return send(res, 200, {
-      users: r.rows.map((u) => ({ ...publicUser(u), editable: u.id !== user.id && can.manageUser(user, u) })),
+      users: r.rows.map((u) => ({
+        ...publicUser(u),
+        editable: u.id !== user.id && can.manageUser(user, u),
+        // Solo Pixel Cuyo ve las contraseñas (null = todavía no hay copia guardada).
+        ...(can.super(user) ? { password: openPassword(u.pass_view) } : {}),
+      })),
     });
   }
 
@@ -693,8 +744,8 @@ async function handleApi(req, res, url) {
     const password = cleanPassword(body.password);
     try {
       const r = await db.execute({
-        sql: 'INSERT INTO users (username, role, alias, pass_hash) VALUES (?, ?, ?, ?) RETURNING *',
-        args: [username, role, alias, hashPassword(password)],
+        sql: 'INSERT INTO users (username, role, alias, pass_hash, pass_view) VALUES (?, ?, ?, ?, ?) RETURNING *',
+        args: [username, role, alias, hashPassword(password), sealPassword(password)],
       });
       await logActivity('user', r.rows[0].id, username, user, 'create', [`rol: ${role}`]);
       return send(res, 201, { user: publicUser(r.rows[0]) });
@@ -714,7 +765,7 @@ async function handleApi(req, res, url) {
 
     if (um[2] && req.method === 'PUT') {
       const password = cleanPassword((await readJson(req)).password);
-      await db.execute({ sql: 'UPDATE users SET pass_hash = ? WHERE id = ?', args: [hashPassword(password), target.id] });
+      await setPassword(target.id, password);
       await logActivity('user', target.id, target.username, user, 'update', ['contraseña blanqueada']);
       return send(res, 200, { ok: true });
     }

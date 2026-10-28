@@ -362,6 +362,42 @@
   });
 
   // ---------- usuarios ----------
+  // Solo Pixel Cuyo recibe las contraseñas: cuadros para copiar usuario y contraseña.
+  function credenciales(u) {
+    const clave = u.password
+      ? `<span class="copiable">
+           <input type="password" readonly value="${escapar(u.password)}" aria-label="Contraseña de ${escapar(u.username)}">
+           <button type="button" class="mini" data-ver-clave aria-label="Mostrar contraseña">👁</button>
+           <button type="button" class="mini" data-copiar>Copiar</button>
+         </span>`
+      : `<span class="ayuda">${u.id === yo.id ? 'Se guarda la próxima vez que entres.' : 'Todavía no está guardada: tocá “Nueva contraseña” para ponerle una.'}</span>`;
+    return `
+      <div class="cred">
+        <label>Usuario
+          <span class="copiable">
+            <input readonly value="${escapar(u.username)}" aria-label="Usuario">
+            <button type="button" class="mini" data-copiar>Copiar</button>
+          </span>
+        </label>
+        <label>Contraseña ${clave}</label>
+        ${u.password ? `<button type="button" class="mini mini--todo" data-copiar-todo="${escapar(u.username)}" data-clave="${escapar(u.password)}">📋 Copiar todo para enviar</button>` : ''}
+      </div>`;
+  }
+
+  async function copiar(texto) {
+    try { await navigator.clipboard.writeText(texto); }
+    catch (_) {
+      // Navegadores viejos: copia con un campo temporal.
+      const t = document.createElement('textarea');
+      t.value = texto;
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand('copy');
+      t.remove();
+    }
+    avisar('Copiado ✓');
+  }
+
   async function pintarUsuarios() {
     const { users } = await api('GET', '/api/users');
     $('listaUsuarios').innerHTML = users.map((u) => `
@@ -369,6 +405,7 @@
         <span class="usuario__nombre">${escapar(u.alias || u.username)}
           <small>${escapar(u.username)} · ${ROL_NOMBRE[u.role] || u.role}${u.id === yo.id ? ' · vos' : ''}</small>
         </span>
+        ${'password' in u ? credenciales(u) : ''}
         ${u.editable ? `
           <button type="button" class="mini" data-blanquear="${u.id}" data-nombre="${escapar(u.username)}">Nueva contraseña</button>
           ${u.role !== 'super' ? `<button type="button" class="mini mini--borrar" data-borrar-usuario="${u.id}" data-nombre="${escapar(u.username)}">Borrar</button>` : ''}` : ''}
@@ -404,6 +441,16 @@
   $('listaUsuarios').addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t) return;
+    if (t.hasAttribute('data-copiar')) return copiar(t.closest('.copiable').querySelector('input').value);
+    if (t.hasAttribute('data-ver-clave')) {
+      const input = t.closest('.copiable').querySelector('input');
+      input.type = input.type === 'password' ? 'text' : 'password';
+      t.textContent = input.type === 'password' ? '👁' : '🙈';
+      return;
+    }
+    if (t.dataset.copiarTodo) {
+      return copiar(`Panel de Carmesí: ${location.origin}/panel\nUsuario: ${t.dataset.copiarTodo}\nContraseña: ${t.dataset.clave}`);
+    }
     try {
       if (t.dataset.blanquear) {
         const clave = prompt(`Contraseña nueva para ${t.dataset.nombre} (mínimo 6 caracteres)`);
