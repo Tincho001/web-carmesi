@@ -72,7 +72,7 @@
     <section class="pantalla" id="pMas" data-pantalla="mas" hidden>
       <div class="quien" id="quien"></div>
       <div class="menu">
-        <button type="button" class="fila" id="menuUsuarios" data-perm="users"><span aria-hidden="true">👥</span> Usuarios</button>
+        <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
         <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
         <button type="button" class="fila" id="menuNegocio" data-perm="settings"><span aria-hidden="true">💬</span> WhatsApp e Instagram</button>
         <button type="button" class="fila" id="menuNiveles" data-solo="super"><span aria-hidden="true">🔐</span> Niveles y permisos</button>
@@ -130,8 +130,13 @@
     <div class="paso" id="paso2" hidden>
       <div class="mini-foto" id="miniFoto">
         <img id="miniFotoImg" alt="">
-        <button type="button" class="mini" id="cambiarFoto">Cambiar foto</button>
+        <div class="mini-foto__botones">
+          <button type="button" class="mini mini--magia" id="quitarFondo">✨ Quitar fondo</button>
+          <button type="button" class="mini" id="deshacerFondo" hidden>↩️ Deshacer</button>
+          <button type="button" class="mini" id="cambiarFoto">Cambiar foto</button>
+        </div>
       </div>
+      <p class="ayuda" id="fondoEstado" hidden></p>
       <label>Nombre <input id="aNombre" maxlength="60" list="nombresUsados" placeholder="Cartera Moños" autocomplete="off"></label>
       <datalist id="nombresUsados"></datalist>
       <div class="campo">
@@ -194,6 +199,7 @@
       <h2>Usuarios</h2>
       <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
     </div>
+    <ul class="cupos" id="cupos" hidden></ul>
     <ul class="usuarios" id="listaUsuarios"></ul>
     <form id="formUsuario" class="nuevo-usuario">
       <h3>Nuevo usuario</h3>
@@ -207,6 +213,7 @@
       </div>
       <p class="ayuda" id="ayudaRoles"></p>
       <p class="error" id="errorUsuarios" hidden></p>
+      <a class="btn btn--wa btn--ancho" id="pedirCupo" target="_blank" rel="noopener" hidden>💬 Pedir un perfil más a Pixel Cuyo</a>
       <div class="dlg__pie"><button type="submit" class="btn btn--bordo">Crear usuario</button></div>
     </form>
   </dialog>
@@ -223,7 +230,25 @@
         <tbody id="tablaNiveles"></tbody>
       </table>
     </div>
-    <p class="ayuda">🔒 Siempre solo tuyo: crear administradores, cambiarle la contraseña a un admin, ver las contraseñas y poner la web en construcción o abrirla. Así nadie te puede dejar afuera.</p>
+    <p class="ayuda">🔒 Siempre solo tuyo: ver las contraseñas, los cupos, estos permisos y la web en construcción. Tu usuario no lo ve ni lo toca nadie más.</p>
+
+    <form id="formCupos" class="cupos-form">
+      <h3>Cupos de perfiles</h3>
+      <p class="ayuda">“Gratis” cuenta todos los perfiles de ese tipo (la dueña es un admin). Cuando paga uno, sumale 1 en “Comprados”.</p>
+      <fieldset>
+        <legend>Administradores <small id="usados_admin"></small></legend>
+        <label>Gratis <input name="admin_gratis" inputmode="numeric"></label>
+        <label>Precio c/u <input name="admin_precio" inputmode="numeric"></label>
+        <label>Comprados <input name="admin_extra" inputmode="numeric"></label>
+      </fieldset>
+      <fieldset>
+        <legend>Vendedores <small id="usados_vendedor"></small></legend>
+        <label>Gratis <input name="vendedor_gratis" inputmode="numeric"></label>
+        <label>Precio c/u <input name="vendedor_precio" inputmode="numeric"></label>
+        <label>Comprados <input name="vendedor_extra" inputmode="numeric"></label>
+      </fieldset>
+      <button type="submit" class="btn btn--bordo btn--ancho">Guardar cupos</button>
+    </form>
   </dialog>
 
   <dialog class="dlg" id="dlgHistorial">
@@ -231,6 +256,16 @@
       <h2>Historial</h2>
       <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
     </div>
+    <div class="alm">
+      <div class="alm__cabeza">
+        <button type="button" class="mini" id="almAntes" aria-label="Mes anterior">‹</button>
+        <strong id="almMes"></strong>
+        <button type="button" class="mini" id="almDespues" aria-label="Mes siguiente">›</button>
+      </div>
+      <div class="alm__grilla" id="almGrilla"></div>
+      <p class="ayuda">Los días con puntito tuvieron cambios. Se guardan los últimos 6 meses.</p>
+    </div>
+    <h3 class="alm__titulo" id="almTitulo"></h3>
     <ul class="historial" id="listaHistorial"></ul>
   </dialog>
 

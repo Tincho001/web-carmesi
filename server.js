@@ -290,6 +290,19 @@ async function initDb() {
   const userCols = (await db.execute('PRAGMA table_info(users)')).rows.map((r) => r.name);
   if (!userCols.includes('alias')) await db.execute("ALTER TABLE users ADD COLUMN alias TEXT NOT NULL DEFAULT ''");
   if (!userCols.includes('pass_view')) await db.execute('ALTER TABLE users ADD COLUMN pass_view TEXT');
+  // Quién creó cada usuario: una admin maneja solo a los subadmins que creó ella.
+  if (!userCols.includes('created_by_id')) await db.execute('ALTER TABLE users ADD COLUMN created_by_id INTEGER');
+
+  // Rol de quien hizo cada cambio: así lo de Pixel Cuyo no se le muestra a la dueña.
+  const actCols = (await db.execute('PRAGMA table_info(activity)')).rows.map((r) => r.name);
+  if (!actCols.includes('actor_role')) {
+    await db.execute('ALTER TABLE activity ADD COLUMN actor_id INTEGER');
+    await db.execute('ALTER TABLE activity ADD COLUMN actor_role TEXT');
+    // Cambios viejos: el rol sale del "(usuario)" del final.
+    for (const u of (await db.execute('SELECT id, username, role FROM users')).rows) {
+      await db.execute({ sql: "UPDATE activity SET actor_id = ?, actor_role = ? WHERE who = ? OR who LIKE ?", args: [u.id, u.role, u.username, `% (${u.username})`] });
+    }
+  }
 
   // Recupera las contraseñas iniciales que siguen vigentes (las que nadie cambió todavía).
   const initial = readText(path.join(DATA_DIR, 'contrasenas-iniciales.txt'));
@@ -385,7 +398,7 @@ const publicUser = (u) => ({ id: u.id, username: u.username, role: u.role, alias
 const whoName = (u) => (u.alias ? `${u.alias} (${u.username})` : u.username);
 
 // Permisos que Pixel Cuyo prende o apaga por rol desde el panel (super siempre tiene todo).
-// Lo de crear admins, cambiarles la contraseña y la web en construcción es solo de super, fijo.
+// Ver contraseñas, cupos, permisos y la web en construcción es solo de super, fijo.
 const PERMISSIONS = [
   { key: 'products_edit', label: 'Cargar y editar productos y stock' },
   { key: 'products_delete', label: 'Borrar productos' },
@@ -393,10 +406,11 @@ const PERMISSIONS = [
   { key: 'settings', label: 'Cambiar WhatsApp e Instagram' },
   { key: 'activity', label: 'Ver el historial de cambios' },
   { key: 'users', label: 'Crear vendedores y cambiarles la contraseña' },
+  { key: 'admins', label: 'Crear subadministradores y cambiarles la contraseña' },
 ];
 const DEFAULT_PERMS = {
-  admin: { products_edit: true, products_delete: true, categories: true, settings: true, activity: true, users: true },
-  vendedor: { products_edit: true, products_delete: false, categories: false, settings: false, activity: false, users: false },
+  admin: { products_edit: true, products_delete: true, categories: true, settings: true, activity: true, users: true, admins: true },
+  vendedor: { products_edit: true, products_delete: false, categories: false, settings: false, activity: false, users: false, admins: false },
 };
 let PERMS = DEFAULT_PERMS;
 
@@ -414,8 +428,12 @@ async function loadPerms() {
 const can = {
   super: (u) => u.role === 'super',
   do: (u, key) => u.role === 'super' || !!PERMS[u.role]?.[key],
-  // super maneja a todos; los demás (con el permiso) solo a los vendedores.
-  manageUser: (u, target) => u.role === 'super' || (can.do(u, 'users') && target.role === 'vendedor'),
+  // super maneja a todos; los demás (con el permiso) a los vendedores y a los subadmins que crearon ellos.
+  manageUser: (u, target) => u.role === 'super'
+    || (target.role === 'vendedor' && can.do(u, 'users'))
+    || (target.role === 'admin' && can.do(u, 'admins') && target.created_by_id === u.id),
+  createRole: (u, role) => u.role === 'super' || (role === 'vendedor' && can.do(u, 'users')) || (role === 'admin' && can.do(u, 'admins')),
+  seeUsers: (u) => can.do(u, 'users') || can.do(u, 'admins'),
 };
 const permsOf = (u) => Object.fromEntries(PERMISSIONS.map(({ key }) => [key, can.do(u, key)]));
 
@@ -427,9 +445,41 @@ function requireRole(ok, message = 'No tenés permiso para hacer esto') {
 
 async function logActivity(kind, entityId, name, user, action, changes = []) {
   await db.execute({
-    sql: 'INSERT INTO activity (kind, entity_id, name, who, action, changes, at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    args: [kind, entityId, name, whoName(user), action, JSON.stringify(changes), Date.now()],
+    sql: 'INSERT INTO activity (kind, entity_id, name, who, action, changes, at, actor_id, actor_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    args: [kind, entityId, name, whoName(user), action, JSON.stringify(changes), Date.now(), user.id, user.role],
   });
+}
+
+// La dueña y su equipo no ven lo que hace Pixel Cuyo.
+const activityScope = (u) => (u.role === 'super' ? '' : "AND (actor_role IS NULL OR actor_role != 'super')");
+
+// El historial guarda solo los últimos 6 meses (para no llenar el servidor).
+const ACTIVITY_DAYS = 183;
+async function trimActivity() {
+  const r = await db.execute({ sql: 'DELETE FROM activity WHERE at < ?', args: [Date.now() - ACTIVITY_DAYS * 864e5] });
+  if (r.rowsAffected) console.log(`Historial: ${r.rowsAffected} cambios de hace más de 6 meses borrados`);
+}
+
+// Cupos de perfiles: los primeros son gratis; los siguientes, pago único (lo habilita Pixel Cuyo).
+const DEFAULT_QUOTAS = {
+  admin: { gratis: 2, precio: 25000, extra: 0 },     // la dueña + 1 subadmin
+  vendedor: { gratis: 3, precio: 10000, extra: 0 },
+};
+
+async function getQuotas() {
+  let saved = {};
+  try { saved = JSON.parse((await getMeta('quotas')) || '{}'); } catch { saved = {}; }
+  const out = {};
+  for (const role of Object.keys(DEFAULT_QUOTAS)) {
+    out[role] = {};
+    for (const k of Object.keys(DEFAULT_QUOTAS[role])) {
+      const v = Number(saved[role]?.[k]);
+      out[role][k] = Number.isInteger(v) && v >= 0 ? v : DEFAULT_QUOTAS[role][k];
+    }
+    out[role].usados = Number((await db.execute({ sql: 'SELECT COUNT(*) AS n FROM users WHERE role = ?', args: [role] })).rows[0].n);
+    out[role].limite = out[role].gratis + out[role].extra;
+  }
+  return out;
 }
 
 async function categoryName(id) {
@@ -764,19 +814,56 @@ async function handleApi(req, res, url) {
   // ----- historial -----
   if (route === 'GET /api/activity') {
     requireRole(can.do(user, 'activity'));
+    // Rango opcional (lo arma el celu con su hora local): from/to en milisegundos.
+    const from = Number(url.searchParams.get('from')) || 0;
+    const to = Number(url.searchParams.get('to')) || Date.now() + 864e5;
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 200);
-    const r = await db.execute({ sql: 'SELECT * FROM activity ORDER BY at DESC, id DESC LIMIT ?', args: [limit] });
+    const r = await db.execute({ sql: `SELECT * FROM activity WHERE at >= ? AND at < ? ${activityScope(user)} ORDER BY at DESC, id DESC LIMIT ?`, args: [from, to, limit] });
     return send(res, 200, {
       items: r.rows.map((a) => ({ id: a.id, kind: a.kind, name: a.name, who: a.who, action: a.action, changes: JSON.parse(a.changes || '[]'), at: a.at })),
     });
   }
 
-  // ----- usuarios: super maneja a todos; la dueña, solo a los vendedores -----
+  // Para marcar en el almanaque qué días tuvieron movimiento.
+  if (route === 'GET /api/activity/stamps') {
+    requireRole(can.do(user, 'activity'));
+    const from = Number(url.searchParams.get('from')) || 0;
+    const to = Number(url.searchParams.get('to')) || Date.now() + 864e5;
+    const r = await db.execute({ sql: `SELECT at FROM activity WHERE at >= ? AND at < ? ${activityScope(user)} ORDER BY at`, args: [from, to] });
+    return send(res, 200, { stamps: r.rows.map((a) => a.at), days: ACTIVITY_DAYS });
+  }
+
+  // ----- cupos de perfiles -----
+  if (route === 'GET /api/quotas') {
+    requireRole(can.seeUsers(user));
+    return send(res, 200, { quotas: await getQuotas() });
+  }
+  if (route === 'PUT /api/quotas') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo cambia los cupos');
+    const body = await readJson(req);
+    const before = await getQuotas();
+    const next = {};
+    const changes = [];
+    for (const role of Object.keys(DEFAULT_QUOTAS)) {
+      next[role] = {};
+      for (const k of Object.keys(DEFAULT_QUOTAS[role])) {
+        const v = Number(body[role]?.[k]);
+        next[role][k] = Number.isInteger(v) && v >= 0 && v <= 100000000 ? v : before[role][k];
+        if (next[role][k] !== before[role][k]) changes.push(`${role} ${k}: ${before[role][k]} → ${next[role][k]}`);
+      }
+    }
+    await setMeta('quotas', JSON.stringify(next));
+    if (changes.length) await logActivity('site', null, 'cupos de perfiles', user, 'update', changes);
+    return send(res, 200, { quotas: await getQuotas() });
+  }
+
+  // ----- usuarios: super maneja a todos; la dueña, a sus vendedores y subadmins -----
   if (route === 'GET /api/users') {
-    requireRole(can.do(user, 'users'));
+    requireRole(can.seeUsers(user));
     const r = await db.execute("SELECT * FROM users ORDER BY CASE role WHEN 'super' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, username");
     return send(res, 200, {
-      users: r.rows.map((u) => ({
+      // La dueña y su equipo no ven el usuario de Pixel Cuyo.
+      users: r.rows.filter((u) => can.super(user) || u.role !== 'super').map((u) => ({
         ...publicUser(u),
         editable: u.id !== user.id && can.manageUser(user, u),
         // Solo Pixel Cuyo ve las contraseñas (null = todavía no hay copia guardada).
@@ -786,18 +873,27 @@ async function handleApi(req, res, url) {
   }
 
   if (route === 'POST /api/users') {
-    requireRole(can.do(user, 'users'));
+    requireRole(can.seeUsers(user));
     const body = await readJson(req);
     const role = String(body.role || 'vendedor');
     if (!['admin', 'vendedor'].includes(role)) throw new HttpError(400, 'Rol inválido');
-    requireRole(can.manageUser(user, { role }), 'Solo Pixel Cuyo puede crear administradores');
+    requireRole(can.createRole(user, role), role === 'admin' ? 'No tenés permiso para crear subadministradores' : 'No tenés permiso para crear vendedores');
     const username = cleanUsername(body.username);
     const alias = cleanText(body.alias, 30);
     const password = cleanPassword(body.password);
+    // Pixel Cuyo no tiene límite; el resto, hasta los cupos gratis más los que se pagaron.
+    if (!can.super(user)) {
+      const q = (await getQuotas())[role];
+      if (q.usados >= q.limite) {
+        const err = new HttpError(402, `Llegaste al límite de ${role === 'admin' ? 'administradores' : 'vendedores'}. Cada perfil más cuesta $` + `${q.precio.toLocaleString('es-AR')} (pago único).`);
+        err.extra = { cupo: { role, precio: q.precio } };
+        throw err;
+      }
+    }
     try {
       const r = await db.execute({
-        sql: 'INSERT INTO users (username, role, alias, pass_hash, pass_view) VALUES (?, ?, ?, ?, ?) RETURNING *',
-        args: [username, role, alias, hashPassword(password), sealPassword(password)],
+        sql: 'INSERT INTO users (username, role, alias, pass_hash, pass_view, created_by_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING *',
+        args: [username, role, alias, hashPassword(password), sealPassword(password), user.id],
       });
       await logActivity('user', r.rows[0].id, username, user, 'create', [`rol: ${role}`]);
       return send(res, 201, { user: publicUser(r.rows[0]) });
@@ -809,7 +905,7 @@ async function handleApi(req, res, url) {
 
   const um = url.pathname.match(/^\/api\/users\/(\d+)(\/password)?$/);
   if (um) {
-    requireRole(can.do(user, 'users'));
+    requireRole(can.seeUsers(user));
     const target = await getUser(Number(um[1]));
     if (!target) throw new HttpError(404, 'Usuario no encontrado');
     if (target.id === user.id) throw new HttpError(400, 'Tu propia contraseña cambiala desde "Cambiar mi contraseña"');
@@ -846,6 +942,7 @@ const MIME = {
   '.ico': 'image/x-icon',
   '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8',
+  '.onnx': 'application/octet-stream',
 };
 
 function serveFile(res, file, cache) {
@@ -894,13 +991,14 @@ async function handle(req, res) {
     const cache = rel.startsWith('assets/') ? 'public, max-age=604800' : 'no-cache';
     return serveFile(res, file, cache);
   } catch (err) {
-    if (err instanceof HttpError) return send(res, err.status, { error: err.message });
+    if (err instanceof HttpError) return send(res, err.status, { error: err.message, ...(err.extra || {}) });
     console.error(err);
     return send(res, 500, { error: 'Error del servidor. Probá de nuevo.' });
   }
 }
 
-initDb().then(loadPerms).then(() => {
+initDb().then(loadPerms).then(trimActivity).then(() => {
+  setInterval(() => trimActivity().catch((e) => console.error(e)), 12 * 3600e3);
   http.createServer(handle).listen(PORT, HOST, () => {
     console.log(`Carmesí escuchando en http://${HOST}:${PORT} (datos en ${DATA_DIR})`);
   });

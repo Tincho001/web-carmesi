@@ -16,7 +16,7 @@
     });
     const data = await r.json().catch(() => ({}));
     if (r.status === 401 && url !== '/api/login' && url !== '/api/me/password') { mostrarLogin(); throw new Error('Iniciá sesión'); }
-    if (!r.ok) throw new Error(data.error || 'Algo salió mal. Probá de nuevo.');
+    if (!r.ok) throw Object.assign(new Error(data.error || 'Algo salió mal. Probá de nuevo.'), { data });
     return data;
   }
 
@@ -70,7 +70,7 @@
     $('saludo').textContent = `Hola, ${nombre} 👋`;
     $('quien').innerHTML = `<strong>${escapar(nombre)}</strong><span>${escapar(user.username)} · ${ROL_NOMBRE[user.role] || user.role}</span>`;
     document.querySelectorAll('[data-solo]').forEach((el) => { el.hidden = !puede[el.dataset.solo](); });
-    document.querySelectorAll('[data-perm]').forEach((el) => { el.hidden = !puede.hacer(el.dataset.perm); });
+    document.querySelectorAll('[data-perm]').forEach((el) => { el.hidden = !el.dataset.perm.split('|').some(puede.hacer); });
     $('nuevaCat').hidden = !puede.hacer('categories');
     pintarObra(me.maintenance);
     await cargar();
@@ -317,6 +317,7 @@
     mostrarError($('errorPaso2'), null);
     mostrarError($('errorPaso3'), null);
     verFoto(as.fotoActual);
+    reiniciarFondo();
     paso(modo === 'editar' ? 2 : 1);
     if (!dlgA.open) dlgA.showModal();
   }
@@ -370,6 +371,84 @@
 
   $('cambiarFoto').addEventListener('click', () => $('fotoInput').click());
 
+  // ✨ Quitar fondo: recorta la cartera y la pone sobre el crema de las demás fotos.
+  let fotoAntesDelFondo = null;
+
+  function cargarHerramientaFondo() {
+    if (window.CarmesiFondo) return Promise.resolve(window.CarmesiFondo);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = '/js/quitar-fondo.js?v=1';
+      s.onload = () => resolve(window.CarmesiFondo);
+      s.onerror = () => reject(new Error('No se pudo cargar la herramienta. Revisá la conexión.'));
+      document.head.appendChild(s);
+    });
+  }
+
+  const cargarImagen = (src) => new Promise((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error('No se pudo leer la foto.'));
+    i.src = src;
+  });
+
+  function aCanvas(origen, w, h) {
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    c.getContext('2d').drawImage(origen, 0, 0, w, h);
+    return c;
+  }
+
+  function estadoFondo(texto) {
+    $('fondoEstado').hidden = !texto;
+    $('fondoEstado').textContent = texto || '';
+  }
+
+  $('quitarFondo').addEventListener('click', async () => {
+    const src = fotoDe();
+    if (!src) return;
+    const botones = [$('quitarFondo'), $('paso2Seguir'), $('cambiarFoto')];
+    botones.forEach((b) => { b.disabled = true; });
+    estadoFondo(window.CarmesiFondo ? '✨ Quitando el fondo…' : '✨ Preparando la herramienta (la primera vez tarda un poquito)…');
+    try {
+      const herramienta = await cargarHerramientaFondo();
+      await herramienta.preparar();
+      estadoFondo('✨ Quitando el fondo…');
+      const resultado = await herramienta.quitarFondo(await cargarImagen(src));
+      fotoAntesDelFondo = { foto: as.foto };
+      as.foto = {
+        photo: resultado.toDataURL('image/jpeg', 0.85),
+        thumb: aCanvas(resultado, 480, 600).toDataURL('image/jpeg', 0.8),
+      };
+      verFoto(as.foto.photo);
+      $('quitarFondo').hidden = true;
+      $('deshacerFondo').hidden = false;
+      estadoFondo('¡Listo! Si no te gusta cómo quedó, tocá Deshacer.');
+    } catch (err) {
+      estadoFondo(err.message);
+    } finally {
+      botones.forEach((b) => { b.disabled = false; });
+    }
+  });
+
+  $('deshacerFondo').addEventListener('click', () => {
+    if (!fotoAntesDelFondo) return;
+    as.foto = fotoAntesDelFondo.foto;
+    fotoAntesDelFondo = null;
+    verFoto(fotoDe());
+    $('quitarFondo').hidden = false;
+    $('deshacerFondo').hidden = true;
+    estadoFondo('');
+  });
+
+  function reiniciarFondo() {
+    fotoAntesDelFondo = null;
+    $('quitarFondo').hidden = false;
+    $('deshacerFondo').hidden = true;
+    estadoFondo('');
+  }
+
   $('fotoInput').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     e.target.value = '';
@@ -379,6 +458,7 @@
       $('fotoTexto').hidden = false;
       $('fotoTexto').textContent = 'Preparando foto…';
       as.foto = { photo: await achicar(file, 1280, 0.82), thumb: await achicar(file, 600, 0.8) };
+      reiniciarFondo();
       verFoto(as.foto.photo);
       // Con la foto lista pasa solo al paso siguiente.
       if (desdePaso1) paso(2);
@@ -648,16 +728,37 @@
       </li>`).join('');
   }
 
+  // WhatsApp de Pixel Cuyo para pedir perfiles extra.
+  const WA_PIXEL_CUYO = '5492617206192';
+  const NOMBRE_ROL = { admin: 'subadministrador', vendedor: 'vendedor' };
+
+  async function pintarCupos() {
+    const { quotas } = await api('GET', '/api/quotas');
+    const fila = (rol, titulo) => {
+      const q = quotas[rol];
+      const libres = Math.max(0, q.limite - q.usados);
+      return `<li>
+        <strong>${titulo}: ${q.usados} de ${q.limite}</strong>
+        <span>${libres ? `Te quedan ${libres} sin costo.` : 'No te quedan lugares libres.'}
+          Cada ${NOMBRE_ROL[rol]} más: <b>${plata(q.precio)}</b> (pago único).</span>
+      </li>`;
+    };
+    $('cupos').innerHTML = (puede.hacer('admins') ? fila('admin', 'Administradores (contándote a vos)') : '') +
+      (puede.hacer('users') ? fila('vendedor', 'Vendedores') : '');
+    $('cupos').hidden = puede.super();
+  }
+
   $('menuUsuarios').addEventListener('click', async () => {
     $('formUsuario').reset();
     mostrarError($('errorUsuarios'), null);
-    // Solo Pixel Cuyo crea administradores; la dueña crea vendedores.
-    $('selRol').innerHTML = (puede.super() ? '<option value="admin">Administrador/a</option>' : '') + '<option value="vendedor" selected>Vendedor/a</option>';
+    $('pedirCupo').hidden = true;
+    $('selRol').innerHTML = (puede.hacer('admins') ? '<option value="admin">Subadministrador/a</option>' : '') +
+      (puede.hacer('users') ? '<option value="vendedor" selected>Vendedor/a</option>' : '');
     $('ayudaRoles').textContent = puede.super()
-      ? 'Lo que puede hacer cada nivel lo elegís en Menú → Niveles y permisos.'
-      : 'Los vendedores cargan productos y stock según los permisos que les dio Pixel Cuyo.';
+      ? 'Lo que puede hacer cada nivel y los cupos los elegís en Más → Niveles y permisos.'
+      : 'Subadministrador/a: maneja la tienda como vos. Vendedor/a: carga productos y stock.';
     try {
-      await pintarUsuarios();
+      await Promise.all([pintarUsuarios(), pintarCupos()]);
       $('dlgUsuarios').showModal();
     } catch (err) { avisar(err.message); }
   });
@@ -669,9 +770,19 @@
       await api('POST', '/api/users', { username: f.username.value, alias: f.alias.value, password: f.password.value, role: f.role.value });
       f.reset();
       mostrarError($('errorUsuarios'), null);
-      await pintarUsuarios();
+      $('pedirCupo').hidden = true;
+      await Promise.all([pintarUsuarios(), pintarCupos()]);
       avisar('Usuario creado ✓');
-    } catch (err) { mostrarError($('errorUsuarios'), err); }
+    } catch (err) {
+      mostrarError($('errorUsuarios'), err);
+      // Sin lugar libre: botón para pedirle el perfil extra a Pixel Cuyo por WhatsApp.
+      const cupo = err.data && err.data.cupo;
+      $('pedirCupo').hidden = !cupo;
+      if (cupo) {
+        const texto = `¡Hola Pixel Cuyo! Soy ${yo.alias || yo.username} de Carmesí. Quiero sumar 1 perfil más de ${NOMBRE_ROL[cupo.role]} en el panel (${plata(cupo.precio)}, pago único).`;
+        $('pedirCupo').href = `https://wa.me/${WA_PIXEL_CUYO}?text=${encodeURIComponent(texto)}`;
+      }
+    }
   });
 
   $('listaUsuarios').addEventListener('click', async (e) => {
@@ -707,17 +818,65 @@
   const ACCION = { create: 'creó', update: 'cambió', delete: 'borró' };
   const TIPO = { product: 'el producto', category: 'la categoría', user: 'el usuario', site: '' };
 
+  // Almanaque: un mes a la vista, los días con cambios marcados; se guardan 6 meses.
+  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const hoy0 = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+  let alm = null; // { mes: Date (día 1), dia: Date, dias: Set de 'aaaa-m-d', retencion }
+  const claveDia = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+
+  async function pintarAlmanaque() {
+    const desde = new Date(alm.mes);
+    const hasta = new Date(alm.mes.getFullYear(), alm.mes.getMonth() + 1, 1);
+    const { stamps, days } = await api('GET', `/api/activity/stamps?from=${desde.getTime()}&to=${hasta.getTime()}`);
+    alm.retencion = days;
+    alm.dias = new Set(stamps.map((t) => claveDia(new Date(t))));
+    const limite = new Date(hoy0().getTime() - days * 864e5);
+    $('almMes').textContent = `${MESES[alm.mes.getMonth()]} ${alm.mes.getFullYear()}`;
+    $('almAntes').disabled = desde <= limite;
+    $('almDespues').disabled = hasta > hoy0();
+    const vacios = (desde.getDay() + 6) % 7; // la semana arranca el lunes
+    const total = new Date(alm.mes.getFullYear(), alm.mes.getMonth() + 1, 0).getDate();
+    let html = '<span class="alm__sem">L</span><span class="alm__sem">M</span><span class="alm__sem">M</span><span class="alm__sem">J</span><span class="alm__sem">V</span><span class="alm__sem">S</span><span class="alm__sem">D</span>';
+    html += '<span></span>'.repeat(vacios);
+    for (let n = 1; n <= total; n++) {
+      const d = new Date(alm.mes.getFullYear(), alm.mes.getMonth(), n);
+      const futuro = d > hoy0();
+      html += `<button type="button" class="alm__dia${alm.dias.has(claveDia(d)) ? ' alm__dia--con' : ''}${claveDia(d) === claveDia(hoy0()) ? ' alm__dia--hoy' : ''}"
+        data-dia="${d.getTime()}" aria-pressed="${claveDia(d) === claveDia(alm.dia)}" ${futuro || d < limite ? 'disabled' : ''}>${n}</button>`;
+    }
+    $('almGrilla').innerHTML = html;
+  }
+
+  async function pintarDia() {
+    const desde = alm.dia.getTime();
+    const hasta = new Date(alm.dia.getFullYear(), alm.dia.getMonth(), alm.dia.getDate() + 1).getTime();
+    const { items } = await api('GET', `/api/activity?from=${desde}&to=${hasta}&limit=500`);
+    $('almTitulo').textContent = alm.dia.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('listaHistorial').innerHTML = items.map((a) => `
+      <li>
+        <p><strong>${escapar(a.who)}</strong> ${ACCION[a.action] || a.action} ${TIPO[a.kind] ?? ''} <strong>${escapar(a.name)}</strong></p>
+        ${a.changes.length ? `<ul>${a.changes.map((c) => `<li>${escapar(c)}</li>`).join('')}</ul>` : ''}
+        <time>${new Date(a.at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
+      </li>`).join('') || '<li class="vacio">Ese día no hubo cambios.</li>';
+  }
+
   $('menuHistorial').addEventListener('click', async () => {
+    const hoy = hoy0();
+    alm = { mes: new Date(hoy.getFullYear(), hoy.getMonth(), 1), dia: hoy, dias: new Set() };
     try {
-      const { items } = await api('GET', '/api/activity');
-      $('listaHistorial').innerHTML = items.map((a) => `
-        <li>
-          <p><strong>${escapar(a.who)}</strong> ${ACCION[a.action] || a.action} ${TIPO[a.kind] ?? ''} <strong>${escapar(a.name)}</strong></p>
-          ${a.changes.length ? `<ul>${a.changes.map((c) => `<li>${escapar(c)}</li>`).join('')}</ul>` : ''}
-          <time>${new Date(a.at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}</time>
-        </li>`).join('') || '<li class="vacio">Todavía no hay cambios.</li>';
+      await Promise.all([pintarAlmanaque(), pintarDia()]);
       $('dlgHistorial').showModal();
     } catch (err) { avisar(err.message); }
+  });
+
+  $('almAntes').addEventListener('click', () => { alm.mes = new Date(alm.mes.getFullYear(), alm.mes.getMonth() - 1, 1); pintarAlmanaque().catch((e) => avisar(e.message)); });
+  $('almDespues').addEventListener('click', () => { alm.mes = new Date(alm.mes.getFullYear(), alm.mes.getMonth() + 1, 1); pintarAlmanaque().catch((e) => avisar(e.message)); });
+  $('almGrilla').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-dia]');
+    if (!b) return;
+    alm.dia = new Date(Number(b.dataset.dia));
+    $('almGrilla').querySelectorAll('[data-dia]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    try { await pintarDia(); } catch (err) { avisar(err.message); }
   });
 
   // ---------- niveles y permisos (solo Pixel Cuyo) ----------
@@ -731,7 +890,7 @@
         ${['admin', 'vendedor'].map((rol) => `
           <td><input type="checkbox" data-rol="${rol}" data-permiso="${p.key}" ${nivelesRoles[rol][p.key] ? 'checked' : ''}
                      aria-label="${rol === 'admin' ? 'Admin' : 'Vendedor'}: ${escapar(p.label)}"></td>`).join('')}
-      </tr>`).join('') + ['Crear administradores', 'Cambiarle la contraseña a un admin', 'Ver las contraseñas', 'Web en construcción / abrirla'].map((t) => `
+      </tr>`).join('') + ['Ver las contraseñas', 'Cupos y precios de perfiles', 'Cambiar estos permisos', 'Web en construcción / abrirla'].map((t) => `
       <tr class="niveles__fijo"><td>${t}</td><td>✅</td><td>🔒</td><td>🔒</td></tr>`).join('');
   }
 
@@ -740,6 +899,11 @@
       const { permissions, roles } = await api('GET', '/api/permissions');
       nivelesRoles = roles;
       pintarNiveles(permissions);
+      const { quotas } = await api('GET', '/api/quotas');
+      for (const rol of ['admin', 'vendedor']) {
+        for (const k of ['gratis', 'precio', 'extra']) $('formCupos').elements[`${rol}_${k}`].value = quotas[rol][k];
+        $(`usados_${rol}`).textContent = `${quotas[rol].usados} creados · límite ${quotas[rol].limite}`;
+      }
       $('dlgNiveles').showModal();
     } catch (err) { avisar(err.message); }
   });
@@ -756,6 +920,21 @@
       c.checked = !c.checked;
       avisar(err.message);
     } finally { c.disabled = false; }
+  });
+
+  $('formCupos').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target.elements;
+    const cuerpo = {};
+    for (const rol of ['admin', 'vendedor']) {
+      cuerpo[rol] = {};
+      for (const k of ['gratis', 'precio', 'extra']) cuerpo[rol][k] = Number(String(f[`${rol}_${k}`].value).replace(/\D/g, ''));
+    }
+    try {
+      const { quotas } = await api('PUT', '/api/quotas', cuerpo);
+      for (const rol of ['admin', 'vendedor']) $(`usados_${rol}`).textContent = `${quotas[rol].usados} creados · límite ${quotas[rol].limite}`;
+      avisar('Cupos guardados ✓');
+    } catch (err) { avisar(err.message); }
   });
 
   // ---------- web en construcción (solo Pixel Cuyo) ----------

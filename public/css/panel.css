@@ -317,3 +317,35 @@ button { cursor: pointer; }
   transition: opacity .2s ease, transform .2s ease;
 }
 .aviso--visible { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Cupos ---------- */
+.cupos { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.cupos li { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: #fbe9c6; color: #6b4a12; font-size: 13px; }
+.cupos strong { font-size: 14px; }
+.btn--wa { background: #25d366; color: #0b3d1f; text-decoration: none; }
+.cupos-form { display: grid; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--linea); }
+.cupos-form h3 { margin: 0; font-family: var(--serif); font-size: 22px; color: var(--bordo); }
+.cupos-form fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 10px; border: 1px solid var(--linea); border-radius: 12px; background: #fff; }
+.cupos-form legend { padding: 0 4px; font-weight: 600; font-size: 14px; }
+.cupos-form legend small { font-weight: 400; color: var(--gris); }
+
+/* ---------- Almanaque ---------- */
+.alm { margin-top: 12px; padding: 12px; border: 1px solid var(--linea); border-radius: 16px; background: #fff; }
+.alm__cabeza { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.alm__cabeza strong { font-family: var(--serif); font-size: 20px; text-transform: capitalize; }
+.alm__cabeza .mini { width: 40px; padding: 0; font-size: 18px; }
+.alm__grilla { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+.alm__sem { font-size: 11px; font-weight: 600; color: var(--gris); padding-bottom: 2px; }
+.alm__dia { position: relative; aspect-ratio: 1; border: 0; border-radius: 10px; background: none; font-size: 14px; }
+.alm__dia:disabled { color: #cbbfb5; cursor: default; }
+.alm__dia--hoy { box-shadow: inset 0 0 0 1px var(--bordo); }
+.alm__dia--con::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--rojo); }
+.alm__dia[aria-pressed="true"] { background: var(--bordo); color: var(--crema); }
+.alm__dia[aria-pressed="true"]::after { background: var(--crema); }
+.alm .ayuda { margin: 8px 0 0; }
+.alm__titulo { margin: 16px 0 0; font-family: var(--serif); font-size: 20px; color: var(--bordo); }
+.alm__titulo::first-letter { text-transform: uppercase; }
+
+/* ---------- Quitar fondo ---------- */
+.mini-foto__botones { display: flex; flex-wrap: wrap; gap: 6px; }
+.mini--magia { border-color: #e3c9a0; background: #fbf1dd; color: #6b4a12; }
