@@ -53,9 +53,9 @@ img { display: block; max-width: 100%; }
 .autor { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .autor__texto { margin: 0; font-size: 11px; letter-spacing: .3em; text-transform: uppercase; opacity: .6; }
 .autor__logo {
-  width: 220px; height: auto;
+  width: 160px; height: auto;
   margin-bottom: 8px;
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
 }
 
