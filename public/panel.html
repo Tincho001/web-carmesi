@@ -30,7 +30,9 @@
     <header class="cabeza">
       <img src="assets/img/monograma-claro.png" alt="" width="30" height="27">
       <h1 class="cabeza__titulo" id="tituloPantalla">Inicio</h1>
-      <a class="cabeza__ver" href="/inicio" target="_blank" rel="noopener">Ver la web ↗</a>
+      <a class="cabeza__ver" href="/inicio" target="_blank" rel="noopener">Ver web ↗</a>
+      <a class="cabeza__icono" id="consultarMartin" target="_blank" rel="noopener" aria-label="Consultar a Martín de Pixel Cuyo por WhatsApp" title="Consultar a Martín">💬</a>
+      <button type="button" class="cabeza__icono" id="abrirAvisos" aria-label="Avisos" title="Avisos">🔔<span class="cabeza__badge" id="avisosN" hidden></span></button>
     </header>
 
     <p class="cartel" id="cartelObra" hidden>🧵 La web está <strong>en construcción</strong>: los clientes todavía no ven los productos.</p>
@@ -251,6 +253,22 @@
     </form>
   </dialog>
 
+  <dialog class="dlg" id="dlgAvisos">
+    <div class="dlg__cabeza">
+      <h2>Avisos</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <ul class="avisos" id="listaAvisos"></ul>
+    <div class="consulta" id="consultaCaja">
+      <img src="assets/img/pixel-cuyo-vertical.png" alt="" width="900" height="780">
+      <div>
+        <strong>¿Tenés alguna consulta?</strong>
+        <p>Escribile a Martín de Pixel Cuyo por lo que necesites: una duda, un cambio en la web o un problema.</p>
+        <a class="btn btn--wa btn--ancho" id="consultarMartin2" target="_blank" rel="noopener">💬 Escribirle</a>
+      </div>
+    </div>
+  </dialog>
+
   <dialog class="dlg" id="dlgHistorial">
     <div class="dlg__cabeza">
       <h2>Historial</h2>
@@ -264,6 +282,10 @@
       </div>
       <div class="alm__grilla" id="almGrilla"></div>
       <p class="ayuda">Los días con puntito tuvieron cambios. Se guardan los últimos 6 meses.</p>
+    </div>
+    <div class="excel">
+      <button type="button" class="btn btn--borde" id="excelMes">⬇️ Bajar este mes en Excel</button>
+      <button type="button" class="btn btn--borde" id="excelTodo">⬇️ Bajar todo (6 meses)</button>
     </div>
     <h3 class="alm__titulo" id="almTitulo"></h3>
     <ul class="historial" id="listaHistorial"></ul>

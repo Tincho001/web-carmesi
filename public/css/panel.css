@@ -349,3 +349,27 @@ button { cursor: pointer; }
 /* ---------- Quitar fondo ---------- */
 .mini-foto__botones { display: flex; flex-wrap: wrap; gap: 6px; }
 .mini--magia { border-color: #e3c9a0; background: #fbf1dd; color: #6b4a12; }
+
+/* ---------- Campanita, consulta y Excel ---------- */
+.cabeza__icono {
+  position: relative; flex: none; display: grid; place-items: center;
+  width: 38px; height: 38px; border: 1px solid rgba(243, 235, 226, .35); border-radius: 50%;
+  background: none; font-size: 17px; text-decoration: none; color: var(--crema);
+}
+.cabeza__badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px;
+  background: #e0313f; color: #fff; font-size: 11px; font-weight: 700; line-height: 19px; text-align: center;
+}
+@media (max-width: 380px) { .cabeza__titulo { font-size: 22px; } .cabeza__ver { font-size: 12px; } }
+.avisos { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.aviso-item { display: flex; gap: 12px; padding: 12px; border: 1px solid #f0d49b; border-radius: 14px; background: #fdf4e1; color: #5a3f10; }
+.aviso-item__icono { font-size: 26px; line-height: 1; }
+.aviso-item strong { display: block; font-size: 15px; }
+.aviso-item p { margin: 4px 0 10px; font-size: 13px; }
+.consulta { display: flex; gap: 14px; align-items: flex-start; margin-top: 18px; padding: 14px; border-radius: 16px; background: #fff; border: 1px solid var(--linea); }
+.consulta img { width: 64px; height: auto; border-radius: 10px; flex: none; }
+.consulta strong { font-family: var(--serif); font-size: 20px; color: var(--bordo); }
+.consulta p { margin: 4px 0 10px; font-size: 13px; color: var(--gris); }
+.excel { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.excel .btn { min-height: 42px; padding: 0 10px; font-size: 12.5px; }

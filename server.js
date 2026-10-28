@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { createClient } = require('@libsql/client');
+const { buildXlsx } = require('./xlsx');
 
 loadEnvFile(path.join(__dirname, '.env'));
 
@@ -455,6 +456,10 @@ const activityScope = (u) => (u.role === 'super' ? '' : "AND (actor_role IS NULL
 
 // El historial guarda solo los últimos 6 meses (para no llenar el servidor).
 const ACTIVITY_DAYS = 183;
+const ACTIVITY_WARN_DAYS = 10; // aviso en la campanita antes de que se borre
+const ZONA = 'America/Argentina/Mendoza';
+const fechaAR = (ms) => new Date(ms).toLocaleDateString('es-AR', { timeZone: ZONA, day: '2-digit', month: '2-digit', year: 'numeric' });
+const horaAR = (ms) => new Date(ms).toLocaleTimeString('es-AR', { timeZone: ZONA, hour: '2-digit', minute: '2-digit' });
 async function trimActivity() {
   const r = await db.execute({ sql: 'DELETE FROM activity WHERE at < ?', args: [Date.now() - ACTIVITY_DAYS * 864e5] });
   if (r.rowsAffected) console.log(`Historial: ${r.rowsAffected} cambios de hace más de 6 meses borrados`);
@@ -822,6 +827,53 @@ async function handleApi(req, res, url) {
     return send(res, 200, {
       items: r.rows.map((a) => ({ id: a.id, kind: a.kind, name: a.name, who: a.who, action: a.action, changes: JSON.parse(a.changes || '[]'), at: a.at })),
     });
+  }
+
+  // Descargar el historial en Excel (mismo filtro que la pantalla: sin lo de Pixel Cuyo para el resto).
+  if (route === 'GET /api/activity/export') {
+    requireRole(can.do(user, 'activity'));
+    const from = Number(url.searchParams.get('from')) || 0;
+    const to = Number(url.searchParams.get('to')) || Date.now() + 864e5;
+    const r = await db.execute({ sql: `SELECT * FROM activity WHERE at >= ? AND at < ? ${activityScope(user)} ORDER BY at, id`, args: [from, to] });
+    const ACCION = { create: 'Creó', update: 'Cambió', delete: 'Borró', export: 'Descargó' };
+    const TIPO = { product: 'Producto', category: 'Categoría', user: 'Usuario', site: 'Web' };
+    const rows = [['Fecha', 'Hora', 'Quién', 'Acción', 'Tipo', 'Qué', 'Detalle']];
+    for (const a of r.rows) {
+      rows.push([fechaAR(a.at), horaAR(a.at), a.who, ACCION[a.action] || a.action, TIPO[a.kind] || a.kind, a.name, JSON.parse(a.changes || '[]').join(' · ')]);
+    }
+    const xlsx = buildXlsx({ sheetName: 'Historial', rows, widths: [12, 8, 26, 10, 12, 34, 60] });
+    const nombre = `historial-carmesi-${fechaAR(from || (r.rows[0] ? r.rows[0].at : Date.now())).replace(/\//g, '-')}-al-${fechaAR(Math.min(to, Date.now())).replace(/\//g, '-')}.xlsx`;
+    await logActivity('site', null, 'el historial en Excel', user, 'export', [`${r.rows.length} cambios`]);
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${nombre}"`,
+      'Content-Length': xlsx.length,
+      'Cache-Control': 'no-store',
+    });
+    return res.end(xlsx);
+  }
+
+  // 🔔 Avisos de la campanita.
+  if (route === 'GET /api/avisos') {
+    const avisos = [];
+    if (can.do(user, 'activity')) {
+      // Cambios que se borran en los próximos 10 días.
+      const limite = Date.now() - (ACTIVITY_DAYS - ACTIVITY_WARN_DAYS) * 864e5;
+      const r = await db.execute({ sql: `SELECT COUNT(*) AS n, MIN(at) AS viejo FROM activity WHERE at < ? ${activityScope(user)}`, args: [limite] });
+      const { n, viejo } = r.rows[0];
+      if (Number(n) > 0) {
+        const borra = Number(viejo) + ACTIVITY_DAYS * 864e5;
+        const dias = Math.max(0, Math.ceil((borra - Date.now()) / 864e5));
+        avisos.push({
+          id: 'borrado',
+          icono: '🗓️',
+          titulo: `${n} ${Number(n) === 1 ? 'cambio del historial se borra' : 'cambios del historial se borran'} ${dias <= 1 ? 'mañana' : `en ${dias} días`}`,
+          texto: `El historial guarda 6 meses. Lo del ${fechaAR(Number(viejo))} se borra el ${fechaAR(borra)}. Si lo querés guardar, bajalo en Excel antes.`,
+          descargar: { from: 0, to: limite },
+        });
+      }
+    }
+    return send(res, 200, { avisos });
   }
 
   // Para marcar en el almanaque qué días tuvieron movimiento.

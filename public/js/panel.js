@@ -73,6 +73,13 @@
     document.querySelectorAll('[data-perm]').forEach((el) => { el.hidden = !el.dataset.perm.split('|').some(puede.hacer); });
     $('nuevaCat').hidden = !puede.hacer('categories');
     pintarObra(me.maintenance);
+    // Martín (Pixel Cuyo) no necesita el botón para escribirse a sí mismo.
+    const link = urlConsulta();
+    $('consultarMartin').hidden = puede.super();
+    $('consultaCaja').hidden = puede.super();
+    $('consultarMartin').href = link;
+    $('consultarMartin2').href = link;
+    pintarAvisos();
     await cargar();
     irA(location.hash.slice(1) || 'inicio');
   }
@@ -97,6 +104,51 @@
     pintarFiltros();
     pintarGrilla();
     pintarCategorias();
+  }
+
+  // ---------- 🔔 avisos y 💬 consulta a Martín ----------
+  const WA_MARTIN = '5492617206192';
+  const urlConsulta = () => `https://wa.me/${WA_MARTIN}?text=${encodeURIComponent(`¡Hola Martín! Soy ${yo.alias || yo.username} de Carmesí. Te quería consultar: `)}`;
+
+  let avisos = [];
+  async function pintarAvisos() {
+    try { avisos = (await api('GET', '/api/avisos')).avisos; } catch (_) { return; }
+    $('avisosN').hidden = !avisos.length;
+    $('avisosN').textContent = avisos.length;
+    $('listaAvisos').innerHTML = avisos.map((a, i) => `
+      <li class="aviso-item">
+        <span class="aviso-item__icono" aria-hidden="true">${a.icono}</span>
+        <div>
+          <strong>${escapar(a.titulo)}</strong>
+          <p>${escapar(a.texto)}</p>
+          ${a.descargar ? `<button type="button" class="btn btn--bordo" data-aviso-excel="${i}">⬇️ Bajar en Excel</button>` : ''}
+        </div>
+      </li>`).join('') || '<li class="vacio">No tenés avisos. 👌</li>';
+  }
+  // Se revisa cada media hora mientras el panel está abierto.
+  setInterval(() => { if (yo) pintarAvisos(); }, 30 * 60e3);
+
+  $('abrirAvisos').addEventListener('click', async () => {
+    await pintarAvisos();
+    $('dlgAvisos').showModal();
+  });
+
+  $('listaAvisos').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-aviso-excel]');
+    if (!b) return;
+    const a = avisos[Number(b.dataset.avisoExcel)];
+    bajarExcel(a.descargar.from, a.descargar.to);
+  });
+
+  // La descarga la arma el servidor (archivo .xlsx).
+  function bajarExcel(desde, hasta) {
+    const a = document.createElement('a');
+    a.href = `/api/activity/export?from=${desde}&to=${hasta}`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    avisar('Bajando el Excel…');
   }
 
   // ---------- navegación (barra de abajo) ----------
@@ -815,7 +867,7 @@
   });
 
   // ---------- historial ----------
-  const ACCION = { create: 'creó', update: 'cambió', delete: 'borró' };
+  const ACCION = { create: 'creó', update: 'cambió', delete: 'borró', export: 'descargó' };
   const TIPO = { product: 'el producto', category: 'la categoría', user: 'el usuario', site: '' };
 
   // Almanaque: un mes a la vista, los días con cambios marcados; se guardan 6 meses.
@@ -868,6 +920,11 @@
       $('dlgHistorial').showModal();
     } catch (err) { avisar(err.message); }
   });
+
+  $('excelMes').addEventListener('click', () => {
+    bajarExcel(alm.mes.getTime(), new Date(alm.mes.getFullYear(), alm.mes.getMonth() + 1, 1).getTime());
+  });
+  $('excelTodo').addEventListener('click', () => bajarExcel(0, Date.now() + 864e5));
 
   $('almAntes').addEventListener('click', () => { alm.mes = new Date(alm.mes.getFullYear(), alm.mes.getMonth() - 1, 1); pintarAlmanaque().catch((e) => avisar(e.message)); });
   $('almDespues').addEventListener('click', () => { alm.mes = new Date(alm.mes.getFullYear(), alm.mes.getMonth() + 1, 1); pintarAlmanaque().catch((e) => avisar(e.message)); });
