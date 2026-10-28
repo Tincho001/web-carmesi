@@ -884,7 +884,8 @@ async function handle(req, res) {
     }
     // En construcción: la tienda no se ve (ni por /index.html), el panel y las imágenes sí.
     const tienda = url.pathname === '/' || url.pathname === '/index.html';
-    if (tienda && (await inMaintenance()) && !(await currentUser(req))) return serveFile(res, path.join(PUBLIC_DIR, 'construccion.html'), 'no-cache');
+    // Siempre, aunque esté logueado: la tienda se revisa en /inicio.
+    if (tienda && (await inMaintenance())) return serveFile(res, path.join(PUBLIC_DIR, 'construccion.html'), 'no-cache');
     const rel = url.pathname === '/' ? 'index.html'
       : url.pathname === '/panel' ? 'panel.html'
       : decodeURIComponent(url.pathname).replace(/^\/+/, '');
