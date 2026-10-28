@@ -51,13 +51,30 @@
     } catch (err) { mostrarError($('loginError'), err); }
   });
 
-  async function entrar(user) {
+  const ROL_NOMBRE = { super: 'Pixel Cuyo (control total)', admin: 'Administradora', vendedor: 'Vendedor/a' };
+  const puede = {
+    manage: () => yo.role === 'super' || yo.role === 'admin',
+    super: () => yo.role === 'super',
+  };
+  let enObra = false;
+
+  async function entrar(user, obra) {
     yo = user;
     $('login').hidden = true;
     $('app').hidden = false;
-    $('quien').textContent = `Entraste como ${user.username}`;
-    $('menuUsuarios').hidden = user.role !== 'admin';
+    $('quien').textContent = `Entraste como ${user.alias || user.username} · ${ROL_NOMBRE[user.role] || user.role}`;
+    document.querySelectorAll('[data-solo]').forEach((el) => { el.hidden = !puede[el.dataset.solo](); });
+    // Los vendedores cargan productos y stock, pero no tocan categorías ni borran.
+    $('tabBtnCategorias').hidden = !puede.manage();
+    if (obra === undefined) obra = (await api('GET', '/api/me')).maintenance;
+    pintarObra(obra);
     await cargar();
+  }
+
+  function pintarObra(obra) {
+    enObra = obra;
+    $('cartelObra').hidden = !obra;
+    $('menuObra').textContent = obra ? '🚀 Abrir la web al público' : '🧵 Poner la web en construcción';
   }
 
   async function cargar() {
@@ -171,7 +188,7 @@
     form.soldOut.checked = p ? p.soldOut : false;
     form.hidden.checked = p ? p.hidden : false;
     verFoto(p ? p.photo : null);
-    $('borrarProducto').hidden = !p;
+    $('borrarProducto').hidden = !p || !puede.manage();
     dlgProducto.showModal();
   }
 
@@ -344,22 +361,93 @@
     } catch (err) { mostrarError($('errorClave'), err); }
   });
 
+  // ---------- usuarios ----------
+  async function pintarUsuarios() {
+    const { users } = await api('GET', '/api/users');
+    $('listaUsuarios').innerHTML = users.map((u) => `
+      <li class="usuario">
+        <span class="usuario__nombre">${escapar(u.alias || u.username)}
+          <small>${escapar(u.username)} · ${ROL_NOMBRE[u.role] || u.role}${u.id === yo.id ? ' · vos' : ''}</small>
+        </span>
+        ${u.editable ? `
+          <button type="button" class="mini" data-blanquear="${u.id}" data-nombre="${escapar(u.username)}">Nueva contraseña</button>
+          ${u.role !== 'super' ? `<button type="button" class="mini mini--borrar" data-borrar-usuario="${u.id}" data-nombre="${escapar(u.username)}">Borrar</button>` : ''}` : ''}
+      </li>`).join('');
+  }
+
   $('menuUsuarios').addEventListener('click', async () => {
     $('dlgMenu').close();
-    const { users } = await api('GET', '/api/users');
-    $('selUsuario').innerHTML = users.filter((u) => u.id !== yo.id).map((u) => `<option value="${u.id}">${escapar(u.username)}</option>`).join('');
-    $('formUsuarios').reset();
+    $('formUsuario').reset();
     mostrarError($('errorUsuarios'), null);
-    $('dlgUsuarios').showModal();
+    // Solo Pixel Cuyo crea administradores; la dueña crea vendedores.
+    $('selRol').innerHTML = (puede.super() ? '<option value="admin">Administrador/a</option>' : '') + '<option value="vendedor" selected>Vendedor/a</option>';
+    $('ayudaRoles').textContent = 'Vendedor/a: carga y edita productos y stock, pero no borra ni toca categorías ni datos del negocio.' +
+      (puede.super() ? ' Administrador/a: maneja todo el catálogo y crea vendedores.' : '');
+    try {
+      await pintarUsuarios();
+      $('dlgUsuarios').showModal();
+    } catch (err) { avisar(err.message); }
   });
 
-  $('formUsuarios').addEventListener('submit', async (e) => {
+  $('formUsuario').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const f = e.target;
     try {
-      await api('PUT', `/api/users/${e.target.userId.value}/password`, { password: e.target.password.value });
-      $('dlgUsuarios').close();
-      avisar('Contraseña blanqueada ✓');
+      await api('POST', '/api/users', { username: f.username.value, alias: f.alias.value, password: f.password.value, role: f.role.value });
+      f.reset();
+      mostrarError($('errorUsuarios'), null);
+      await pintarUsuarios();
+      avisar('Usuario creado ✓');
     } catch (err) { mostrarError($('errorUsuarios'), err); }
+  });
+
+  $('listaUsuarios').addEventListener('click', async (e) => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    try {
+      if (t.dataset.blanquear) {
+        const clave = prompt(`Contraseña nueva para ${t.dataset.nombre} (mínimo 6 caracteres)`);
+        if (!clave) return;
+        await api('PUT', `/api/users/${t.dataset.blanquear}/password`, { password: clave });
+        avisar('Contraseña cambiada ✓');
+      }
+      if (t.dataset.borrarUsuario) {
+        if (!confirm(`¿Borrar el usuario ${t.dataset.nombre}? Ya no va a poder entrar.`)) return;
+        await api('DELETE', `/api/users/${t.dataset.borrarUsuario}`);
+        await pintarUsuarios();
+        avisar('Usuario borrado');
+      }
+    } catch (err) { avisar(err.message); }
+  });
+
+  // ---------- historial ----------
+  const ACCION = { create: 'creó', update: 'cambió', delete: 'borró' };
+  const TIPO = { product: 'el producto', category: 'la categoría', user: 'el usuario', site: '' };
+
+  $('menuHistorial').addEventListener('click', async () => {
+    $('dlgMenu').close();
+    try {
+      const { items } = await api('GET', '/api/activity');
+      $('listaHistorial').innerHTML = items.map((a) => `
+        <li>
+          <p><strong>${escapar(a.who)}</strong> ${ACCION[a.action] || a.action} ${TIPO[a.kind] ?? ''} <strong>${escapar(a.name)}</strong></p>
+          ${a.changes.length ? `<ul>${a.changes.map((c) => `<li>${escapar(c)}</li>`).join('')}</ul>` : ''}
+          <time>${new Date(a.at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}</time>
+        </li>`).join('') || '<li class="vacio">Todavía no hay cambios.</li>';
+      $('dlgHistorial').showModal();
+    } catch (err) { avisar(err.message); }
+  });
+
+  // ---------- web en construcción (solo Pixel Cuyo) ----------
+  $('menuObra').addEventListener('click', async () => {
+    const abrir = enObra;
+    if (!confirm(abrir ? '¿Abrir la web? Todos van a ver los productos.' : '¿Poner la web en construcción? Los clientes no van a ver los productos.')) return;
+    try {
+      const { maintenance } = await api('PUT', '/api/maintenance', { on: !abrir });
+      pintarObra(maintenance);
+      $('dlgMenu').close();
+      avisar(maintenance ? 'Web en construcción 🧵' : 'Web abierta al público 🚀');
+    } catch (err) { avisar(err.message); }
   });
 
   // Cerrar diálogos con la X o tocando afuera
@@ -370,5 +458,5 @@
   });
 
   // ---------- arranque ----------
-  api('GET', '/api/me').then(({ user }) => entrar(user)).catch(() => mostrarLogin());
+  api('GET', '/api/me').then(({ user, maintenance }) => entrar(user, maintenance)).catch(() => mostrarLogin());
 })();

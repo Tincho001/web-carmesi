@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Carmesí Bags — En construcción</title>
+  <meta name="description" content="Carmesí Bags: carteras y bolsos en Mendoza. Muy pronto, nuestra tienda online.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#5e1a22">
+  <link rel="icon" type="image/png" href="/assets/img/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bordo: #5e1a22;
+      --crema-texto: #f6efe6;
+      --serif: 'Cormorant Garamond', Georgia, serif;
+      --sans: 'Montserrat', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bordo);
+      color: var(--crema-texto);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    img { display: block; max-width: 100%; }
+    main {
+      min-height: 100vh; min-height: 100dvh;
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+      gap: 36px;
+      padding: 48px 16px 32px;
+      text-align: center;
+      background: radial-gradient(ellipse at 50% 38%, rgba(139, 25, 37, .55), transparent 65%), var(--bordo);
+    }
+    .marca { margin: auto 0; }
+    .monograma { width: 110px; height: auto; margin: 0 auto 8px; opacity: .95; }
+    h1 {
+      margin: 0;
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(60px, 16vw, 120px); line-height: 1; letter-spacing: .04em;
+    }
+    .sub {
+      display: flex; align-items: center; justify-content: center; gap: 16px;
+      margin: 10px 0 40px;
+      font-size: 13px; letter-spacing: .6em; text-transform: uppercase;
+    }
+    .sub span { width: 56px; height: 1px; background: currentColor; opacity: .6; }
+    .emoji { font-size: 56px; line-height: 1; margin-bottom: 14px; }
+    .titulo { margin: 0; font-family: var(--serif); font-size: 30px; font-weight: 500; }
+    .texto { margin: 8px 0 0; font-size: 14px; opacity: .8; }
+    .autor { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .autor p { margin: 0; font-size: 11px; letter-spacing: .3em; text-transform: uppercase; opacity: .6; }
+    .autor img { width: 110px; height: auto; border-radius: 12px; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="marca">
+      <img class="monograma" src="/assets/img/monograma-claro.png" alt="" width="595" height="530">
+      <h1>Carmesí</h1>
+      <p class="sub"><span></span>Bags<span></span></p>
+      <div class="emoji" aria-hidden="true">🧵</div>
+      <p class="titulo">Sitio en construcción</p>
+      <p class="texto">Estamos cosiendo algo lindo. Muy pronto, nuestra tienda online.</p>
+    </div>
+
+    <div class="autor">
+      <p>Sitio web por</p>
+      <img src="/assets/img/pixel-cuyo-vertical.png" alt="Pixel Cuyo" width="900" height="780">
+    </div>
+  </main>
+</body>
+</html>

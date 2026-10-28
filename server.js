@@ -20,9 +20,13 @@ const COMMIT = (process.env.APP_COMMIT_SHA || readText(path.join(__dirname, '.de
 const SESSION_DAYS = 30;
 const MAX_BODY = 8 * 1024 * 1024;
 const MAX_IMAGE = 3 * 1024 * 1024;
+// Roles: super = Pixel Cuyo (todo, único que crea admins y prende el mantenimiento);
+// admin = la dueña (catálogo, datos del negocio, crea vendedores);
+// vendedor = colaboradores (cargan y editan productos y stock).
+const ROLES = ['super', 'admin', 'vendedor'];
 const USERS = [
-  { username: 'admin', role: 'admin', envPass: 'INIT_PASS_ADMIN' },
-  { username: 'valentina', role: 'duena', envPass: 'INIT_PASS_VALENTINA' },
+  { username: 'admin', role: 'super', alias: 'Pixel Cuyo', envPass: 'INIT_PASS_ADMIN' },
+  { username: 'valentina', role: 'admin', alias: 'Valentina', envPass: 'INIT_PASS_VALENTINA' },
 ];
 const DEFAULT_SETTINGS = { whatsapp: '5492612554003', instagram: 'bags_carmesi' };
 
@@ -163,6 +167,12 @@ function cleanName(value, what) {
   return name;
 }
 
+function cleanUsername(value) {
+  const u = String(value || '').trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,20}$/.test(u)) throw new HttpError(400, 'El usuario tiene que tener de 3 a 20 letras o números, sin espacios');
+  return u;
+}
+
 function cleanPassword(value) {
   const p = String(value || '');
   if (p.length < 6) throw new HttpError(400, 'La contraseña tiene que tener al menos 6 caracteres');
@@ -230,7 +240,30 @@ async function initDb() {
       updated_at INTEGER NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)`,
+    `CREATE TABLE IF NOT EXISTS activity (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,
+      entity_id INTEGER,
+      name TEXT NOT NULL,
+      who TEXT NOT NULL,
+      action TEXT NOT NULL,
+      changes TEXT,
+      at INTEGER NOT NULL
+    )`,
+    'CREATE INDEX IF NOT EXISTS activity_by_at ON activity (at)',
   ], 'write');
+
+  if (!(await db.execute('PRAGMA table_info(users)')).rows.some((r) => r.name === 'alias')) {
+    await db.execute("ALTER TABLE users ADD COLUMN alias TEXT NOT NULL DEFAULT ''");
+  }
+
+  // Roles viejos (admin = Pixel Cuyo, duena = Valentina) → super / admin. Una sola vez.
+  if (!(await getMeta('roles_v2'))) {
+    await db.execute("UPDATE users SET role = CASE role WHEN 'admin' THEN 'super' WHEN 'duena' THEN 'admin' ELSE role END");
+    await db.execute("UPDATE users SET alias = 'Pixel Cuyo' WHERE username = 'admin' AND alias = ''");
+    await db.execute("UPDATE users SET alias = 'Valentina' WHERE username = 'valentina' AND alias = ''");
+    await setMeta('roles_v2', '1');
+  }
 
   // Catálogo de arranque (una sola vez): lo que estaba en la web de muestra.
   if (!(await getMeta('catalog_seeded'))) {
@@ -262,7 +295,7 @@ async function initDb() {
     const created = [];
     for (const u of USERS) {
       const pass = process.env[u.envPass] || randomPassword();
-      await db.execute({ sql: 'INSERT OR IGNORE INTO users (username, role, pass_hash) VALUES (?, ?, ?)', args: [u.username, u.role, hashPassword(pass)] });
+      await db.execute({ sql: 'INSERT OR IGNORE INTO users (username, role, alias, pass_hash) VALUES (?, ?, ?, ?)', args: [u.username, u.role, u.alias, hashPassword(pass)] });
       created.push(`${u.username}: ${pass}`);
     }
     await setMeta('users_seeded', '1');
@@ -280,6 +313,9 @@ async function getMeta(key) {
 async function setMeta(key, value) {
   await db.execute({ sql: 'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', args: [key, value] });
 }
+
+// Mientras no se lance, la web arranca "en construcción" (solo Pixel Cuyo la abre desde el panel).
+const inMaintenance = async () => (await getMeta('maintenance')) !== '0';
 
 async function getSettings() {
   return {
@@ -300,7 +336,51 @@ async function currentUser(req) {
   return user && passVersion(user.pass_hash) === data.pv ? user : null;
 }
 
-const publicUser = (u) => ({ id: u.id, username: u.username, role: u.role });
+const publicUser = (u) => ({ id: u.id, username: u.username, role: u.role, alias: u.alias || '' });
+const whoName = (u) => (u.alias ? `${u.alias} (${u.username})` : u.username);
+
+// Quién puede hacer qué.
+const can = {
+  catalog: (u) => ROLES.includes(u.role),                   // crear y editar productos, stock
+  manage: (u) => u.role === 'super' || u.role === 'admin',   // borrar productos, categorías, datos del negocio, historial
+  super: (u) => u.role === 'super',
+  // super maneja a todos; admin solo a los vendedores.
+  manageUser: (u, target) => u.role === 'super' || (u.role === 'admin' && target.role === 'vendedor'),
+};
+
+function requireRole(ok, message = 'No tenés permiso para hacer esto') {
+  if (!ok) throw new HttpError(403, message);
+}
+
+// ---------- historial de cambios ----------
+
+async function logActivity(kind, entityId, name, user, action, changes = []) {
+  await db.execute({
+    sql: 'INSERT INTO activity (kind, entity_id, name, who, action, changes, at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    args: [kind, entityId, name, whoName(user), action, JSON.stringify(changes), Date.now()],
+  });
+}
+
+async function categoryName(id) {
+  const r = await db.execute({ sql: 'SELECT name FROM categories WHERE id = ?', args: [id] });
+  return r.rows[0] ? r.rows[0].name : 'sin categoría';
+}
+
+// Lista legible de lo que cambió, ej: "precio: $22.000 → $25.000".
+async function describeProductChanges(before, after) {
+  const out = [];
+  const plata = (n) => '$' + Number(n).toLocaleString('es-AR');
+  if (before.name !== after.name) out.push(`nombre: "${before.name}" → "${after.name}"`);
+  if (before.color !== after.color) out.push(`color: "${before.color}" → "${after.color}"`);
+  if (before.price !== after.price) out.push(`precio: ${plata(before.price)} → ${plata(after.price)}`);
+  if (before.category_id !== after.category_id) out.push(`categoría: ${await categoryName(before.category_id)} → ${await categoryName(after.category_id)}`);
+  if (before.sold_out !== after.sold_out) out.push(after.sold_out ? 'marcado sin stock' : 'marcado con stock');
+  if (before.hidden !== after.hidden) out.push(after.hidden ? 'oculto de la web' : 'visible en la web');
+  if (before.photo !== after.photo) out.push('foto nueva');
+  return out;
+}
+
+const productLabel = (p) => (p.color ? `${p.name} (${p.color})` : p.name);
 const photoUrl = (file) => (file ? `/uploads/${file}` : null);
 
 function adminProduct(p) {
@@ -373,7 +453,11 @@ async function handleApi(req, res, url) {
 
   if (route === 'GET /api/health') return send(res, 200, { ok: true, commit: COMMIT });
 
-  if (route === 'GET /api/catalogo') return send(res, 200, await publicCatalog(), { 'Cache-Control': 'no-cache' });
+  if (route === 'GET /api/catalogo') {
+    // Quien entró al panel puede ver la tienda igual, para revisar cómo queda.
+    if ((await inMaintenance()) && !(await currentUser(req))) throw new HttpError(503, 'Sitio en construcción');
+    return send(res, 200, await publicCatalog(), { 'Cache-Control': 'no-cache' });
+  }
 
   if (route === 'POST /api/login') {
     if (tooManyFails(ip)) throw new HttpError(429, 'Demasiados intentos. Esperá unos minutos.');
@@ -395,26 +479,45 @@ async function handleApi(req, res, url) {
   const user = await currentUser(req);
   if (!user) throw new HttpError(401, 'Iniciá sesión');
 
-  if (route === 'GET /api/me') return send(res, 200, { user: publicUser(user) });
+  if (route === 'GET /api/me') return send(res, 200, { user: publicUser(user), maintenance: await inMaintenance() });
 
   if (route === 'PUT /api/me/password') {
     const body = await readJson(req);
     if (!checkPassword(String(body.current || ''), user.pass_hash)) throw new HttpError(400, 'La contraseña actual no es correcta');
     const passHash = hashPassword(cleanPassword(body.password));
     await db.execute({ sql: 'UPDATE users SET pass_hash = ? WHERE id = ?', args: [passHash, user.id] });
+    await logActivity('user', user.id, user.username, user, 'update', ['cambió su contraseña']);
     return send(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req, makeToken({ ...user, pass_hash: passHash }), SESSION_DAYS * 86400) });
   }
 
+  // ----- modo mantenimiento (solo Pixel Cuyo): la web muestra un cartel, el panel sigue andando -----
+  if (route === 'PUT /api/maintenance') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo puede poner la web en mantenimiento');
+    const on = !!(await readJson(req)).on;
+    await setMeta('maintenance', on ? '1' : '0');
+    await logActivity('site', null, 'web', user, 'update', [on ? 'puso la web en mantenimiento' : 'volvió a abrir la web']);
+    return send(res, 200, { maintenance: on });
+  }
+
   // ----- datos del negocio (WhatsApp e Instagram) -----
-  if (route === 'GET /api/settings') return send(res, 200, await getSettings());
+  if (route === 'GET /api/settings') {
+    requireRole(can.manage(user));
+    return send(res, 200, await getSettings());
+  }
   if (route === 'PUT /api/settings') {
+    requireRole(can.manage(user));
     const body = await readJson(req);
     const whatsapp = String(body.whatsapp || '').replace(/\D/g, '');
     if (whatsapp.length < 10 || whatsapp.length > 15) throw new HttpError(400, 'El WhatsApp tiene que ser el número completo, ej: 5492612554003');
     const instagram = String(body.instagram || '').trim().replace(/^@/, '');
     if (instagram && !/^[\w.]{1,30}$/.test(instagram)) throw new HttpError(400, 'Usuario de Instagram inválido');
+    const before = await getSettings();
     await setMeta('whatsapp', whatsapp);
     await setMeta('instagram', instagram);
+    const changes = [];
+    if (before.whatsapp !== whatsapp) changes.push(`WhatsApp: ${before.whatsapp} → ${whatsapp}`);
+    if (before.instagram !== instagram) changes.push(`Instagram: @${before.instagram} → @${instagram}`);
+    if (changes.length) await logActivity('site', null, 'datos del negocio', user, 'update', changes);
     return send(res, 200, await getSettings());
   }
 
@@ -426,10 +529,12 @@ async function handleApi(req, res, url) {
   }
 
   if (route === 'POST /api/categories') {
+    requireRole(can.manage(user), 'Solo la dueña puede crear categorías');
     const name = cleanName((await readJson(req)).name, 'de la categoría');
     const pos = Number((await db.execute('SELECT COALESCE(MAX(position), -1) + 1 AS n FROM categories')).rows[0].n);
     try {
       const r = await db.execute({ sql: 'INSERT INTO categories (name, position, updated_at) VALUES (?, ?, ?) RETURNING *', args: [name, pos, Date.now()] });
+      await logActivity('category', r.rows[0].id, name, user, 'create');
       return send(res, 201, { category: { id: r.rows[0].id, name, count: 0 } });
     } catch (err) {
       if (/UNIQUE/i.test(String(err.message))) throw new HttpError(409, 'Ya existe una categoría con ese nombre');
@@ -439,12 +544,14 @@ async function handleApi(req, res, url) {
 
   const cmove = url.pathname.match(/^\/api\/categories\/(\d+)\/move$/);
   if (cmove && req.method === 'POST') {
+    requireRole(can.manage(user));
     await move('categories', Number(cmove[1]), (await readJson(req)).dir);
     return send(res, 200, { ok: true });
   }
 
   const cm = url.pathname.match(/^\/api\/categories\/(\d+)$/);
   if (cm) {
+    requireRole(can.manage(user), 'Solo la dueña puede cambiar categorías');
     const id = Number(cm[1]);
     const existing = (await db.execute({ sql: 'SELECT * FROM categories WHERE id = ?', args: [id] })).rows[0];
     if (!existing) throw new HttpError(404, 'La categoría no existe');
@@ -453,6 +560,7 @@ async function handleApi(req, res, url) {
       const name = cleanName((await readJson(req)).name, 'de la categoría');
       try {
         await db.execute({ sql: 'UPDATE categories SET name = ?, updated_at = ? WHERE id = ?', args: [name, Date.now(), id] });
+        if (name !== existing.name) await logActivity('category', id, name, user, 'update', [`nombre: "${existing.name}" → "${name}"`]);
         return send(res, 200, { ok: true });
       } catch (err) {
         if (/UNIQUE/i.test(String(err.message))) throw new HttpError(409, 'Ya existe una categoría con ese nombre');
@@ -464,6 +572,7 @@ async function handleApi(req, res, url) {
       const n = (await db.execute({ sql: 'SELECT COUNT(*) AS n FROM products WHERE category_id = ?', args: [id] })).rows[0].n;
       if (n > 0) throw new HttpError(409, 'Primero pasá sus productos a otra categoría o borralos');
       await db.execute({ sql: 'DELETE FROM categories WHERE id = ?', args: [id] });
+      await logActivity('category', id, existing.name, user, 'delete');
       return send(res, 200, { ok: true });
     }
   }
@@ -475,6 +584,7 @@ async function handleApi(req, res, url) {
   }
 
   if (route === 'POST /api/products') {
+    requireRole(can.catalog(user));
     const p = await readProductBody(req);
     if (!p.body.photo) throw new HttpError(400, 'Sacale o elegí una foto');
     const base = newPhotoName();
@@ -487,11 +597,13 @@ async function handleApi(req, res, url) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
       args: [p.name, p.color, p.categoryId, p.price, photo, thumb, p.soldOut, p.hidden, pos, user.username, Date.now()],
     });
+    await logActivity('product', r.rows[0].id, productLabel(r.rows[0]), user, 'create');
     return send(res, 201, { product: adminProduct(r.rows[0]) });
   }
 
   const pmove = url.pathname.match(/^\/api\/products\/(\d+)\/move$/);
   if (pmove && req.method === 'POST') {
+    requireRole(can.catalog(user));
     const id = Number(pmove[1]);
     const p = (await db.execute({ sql: 'SELECT category_id FROM products WHERE id = ?', args: [id] })).rows[0];
     if (!p) throw new HttpError(404, 'El producto no existe');
@@ -501,6 +613,7 @@ async function handleApi(req, res, url) {
 
   const m = url.pathname.match(/^\/api\/products\/(\d+)$/);
   if (m) {
+    requireRole(can.catalog(user));
     const id = Number(m[1]);
     const existing = (await db.execute({ sql: 'SELECT * FROM products WHERE id = ?', args: [id] })).rows[0];
     if (!existing) throw new HttpError(404, 'El producto no existe');
@@ -514,6 +627,8 @@ async function handleApi(req, res, url) {
         sql: 'UPDATE products SET sold_out = ?, hidden = ?, updated_by = ?, updated_at = ? WHERE id = ? RETURNING *',
         args: [soldOut, hidden, user.username, Date.now(), id],
       });
+      const changes = await describeProductChanges(existing, r.rows[0]);
+      if (changes.length) await logActivity('product', id, productLabel(r.rows[0]), user, 'update', changes);
       return send(res, 200, { product: adminProduct(r.rows[0]) });
     }
 
@@ -531,29 +646,81 @@ async function handleApi(req, res, url) {
         args: [p.name, p.color, p.categoryId, p.price, photo, thumb, p.soldOut, p.hidden, user.username, Date.now(), id],
       });
       if (photo !== existing.photo) { removeUpload(existing.photo); removeUpload(existing.thumb); }
+      const changes = await describeProductChanges(existing, r.rows[0]);
+      if (changes.length) await logActivity('product', id, productLabel(r.rows[0]), user, 'update', changes);
       return send(res, 200, { product: adminProduct(r.rows[0]) });
     }
 
     if (req.method === 'DELETE') {
+      requireRole(can.manage(user), 'Solo la dueña puede borrar productos');
       await db.execute({ sql: 'DELETE FROM products WHERE id = ?', args: [id] });
+      await logActivity('product', id, productLabel(existing), user, 'delete');
       removeUpload(existing.photo);
       removeUpload(existing.thumb);
       return send(res, 200, { ok: true });
     }
   }
 
-  // ----- solo admin: blanquear la contraseña de Valentina si se la olvida -----
-  if (user.role === 'admin') {
-    if (route === 'GET /api/users') {
-      const r = await db.execute('SELECT * FROM users ORDER BY id');
-      return send(res, 200, { users: r.rows.map(publicUser) });
+  // ----- historial -----
+  if (route === 'GET /api/activity') {
+    requireRole(can.manage(user));
+    const limit = Math.min(500, Number(url.searchParams.get('limit')) || 200);
+    const r = await db.execute({ sql: 'SELECT * FROM activity ORDER BY at DESC, id DESC LIMIT ?', args: [limit] });
+    return send(res, 200, {
+      items: r.rows.map((a) => ({ id: a.id, kind: a.kind, name: a.name, who: a.who, action: a.action, changes: JSON.parse(a.changes || '[]'), at: a.at })),
+    });
+  }
+
+  // ----- usuarios: super maneja a todos; la dueña, solo a los vendedores -----
+  if (route === 'GET /api/users') {
+    requireRole(can.manage(user));
+    const r = await db.execute("SELECT * FROM users ORDER BY CASE role WHEN 'super' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, username");
+    return send(res, 200, {
+      users: r.rows.map((u) => ({ ...publicUser(u), editable: u.id !== user.id && can.manageUser(user, u) })),
+    });
+  }
+
+  if (route === 'POST /api/users') {
+    requireRole(can.manage(user));
+    const body = await readJson(req);
+    const role = String(body.role || 'vendedor');
+    if (!['admin', 'vendedor'].includes(role)) throw new HttpError(400, 'Rol inválido');
+    requireRole(can.manageUser(user, { role }), 'Solo Pixel Cuyo puede crear administradores');
+    const username = cleanUsername(body.username);
+    const alias = cleanText(body.alias, 30);
+    const password = cleanPassword(body.password);
+    try {
+      const r = await db.execute({
+        sql: 'INSERT INTO users (username, role, alias, pass_hash) VALUES (?, ?, ?, ?) RETURNING *',
+        args: [username, role, alias, hashPassword(password)],
+      });
+      await logActivity('user', r.rows[0].id, username, user, 'create', [`rol: ${role}`]);
+      return send(res, 201, { user: publicUser(r.rows[0]) });
+    } catch (err) {
+      if (/UNIQUE/i.test(String(err.message))) throw new HttpError(409, 'Ya existe un usuario con ese nombre');
+      throw err;
     }
-    const pw = url.pathname.match(/^\/api\/users\/(\d+)\/password$/);
-    if (pw && req.method === 'PUT') {
-      const target = await getUser(Number(pw[1]));
-      if (!target) throw new HttpError(404, 'Usuario no encontrado');
+  }
+
+  const um = url.pathname.match(/^\/api\/users\/(\d+)(\/password)?$/);
+  if (um) {
+    requireRole(can.manage(user));
+    const target = await getUser(Number(um[1]));
+    if (!target) throw new HttpError(404, 'Usuario no encontrado');
+    if (target.id === user.id) throw new HttpError(400, 'Tu propia contraseña cambiala desde "Cambiar mi contraseña"');
+    requireRole(can.manageUser(user, target), 'No podés cambiar este usuario');
+
+    if (um[2] && req.method === 'PUT') {
       const password = cleanPassword((await readJson(req)).password);
       await db.execute({ sql: 'UPDATE users SET pass_hash = ? WHERE id = ?', args: [hashPassword(password), target.id] });
+      await logActivity('user', target.id, target.username, user, 'update', ['contraseña blanqueada']);
+      return send(res, 200, { ok: true });
+    }
+
+    if (!um[2] && req.method === 'DELETE') {
+      if (target.role === 'super') throw new HttpError(400, 'El usuario de Pixel Cuyo no se puede borrar');
+      await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [target.id] });
+      await logActivity('user', target.id, target.username, user, 'delete');
       return send(res, 200, { ok: true });
     }
   }
@@ -604,6 +771,9 @@ async function handle(req, res) {
     }
 
     if (url.pathname === '/panel/') return send(res, 301, '', { Location: '/panel' });
+    // En construcción: la tienda no se ve (ni por /index.html), el panel y las imágenes sí.
+    const tienda = url.pathname === '/' || url.pathname === '/index.html';
+    if (tienda && (await inMaintenance()) && !(await currentUser(req))) return serveFile(res, path.join(PUBLIC_DIR, 'construccion.html'), 'no-cache');
     const rel = url.pathname === '/' ? 'index.html'
       : url.pathname === '/panel' ? 'panel.html'
       : decodeURIComponent(url.pathname).replace(/^\/+/, '');

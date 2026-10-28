@@ -36,9 +36,11 @@
       <button class="cabeza__menu" type="button" id="abrirMenu" aria-label="Menú">☰</button>
     </header>
 
+    <p class="cartel" id="cartelObra" hidden>🧵 La web está <strong>en construcción</strong>: los clientes todavía no ven los productos.</p>
+
     <nav class="pestanas" role="tablist">
       <button type="button" role="tab" data-tab="productos" aria-selected="true">Productos</button>
-      <button type="button" role="tab" data-tab="categorias" aria-selected="false">Categorías</button>
+      <button type="button" role="tab" data-tab="categorias" aria-selected="false" id="tabBtnCategorias">Categorías</button>
     </nav>
 
     <section id="tabProductos" class="hoja">
@@ -96,9 +98,11 @@
     </div>
     <p class="quien" id="quien"></p>
     <div class="menu">
-      <button type="button" class="btn btn--borde" id="menuNegocio">Datos del negocio</button>
+      <button type="button" class="btn btn--borde" id="menuUsuarios" data-solo="manage">👥 Usuarios</button>
+      <button type="button" class="btn btn--borde" id="menuHistorial" data-solo="manage">🕑 Historial de cambios</button>
+      <button type="button" class="btn btn--borde" id="menuNegocio" data-solo="manage">Datos del negocio</button>
+      <button type="button" class="btn btn--borde" id="menuObra" data-solo="super"></button>
       <button type="button" class="btn btn--borde" id="menuClave">Cambiar mi contraseña</button>
-      <button type="button" class="btn btn--borde" id="menuUsuarios" hidden>Blanquear contraseña de otro usuario</button>
       <button type="button" class="btn btn--borrar" id="salir">Salir</button>
     </div>
     <p class="firma">Panel hecho por <strong>Pixel Cuyo</strong></p>
@@ -132,16 +136,33 @@
   </dialog>
 
   <dialog class="dlg" id="dlgUsuarios">
-    <form id="formUsuarios">
-      <div class="dlg__cabeza">
-        <h2>Blanquear contraseña</h2>
-        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    <div class="dlg__cabeza">
+      <h2>Usuarios</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <ul class="usuarios" id="listaUsuarios"></ul>
+    <form id="formUsuario" class="nuevo-usuario">
+      <h3>Nuevo usuario</h3>
+      <div class="dos">
+        <label>Usuario <input name="username" autocapitalize="none" autocomplete="off" required placeholder="ej: sofia"></label>
+        <label>Nombre <input name="alias" maxlength="30" placeholder="ej: Sofía"></label>
       </div>
-      <label>Usuario <select name="userId" id="selUsuario"></select></label>
-      <label>Contraseña nueva <input name="password" type="text" autocomplete="off" minlength="6" required></label>
+      <div class="dos">
+        <label>Contraseña <input name="password" type="text" autocomplete="off" minlength="6" required></label>
+        <label>Rol <select name="role" id="selRol"></select></label>
+      </div>
+      <p class="ayuda" id="ayudaRoles"></p>
       <p class="error" id="errorUsuarios" hidden></p>
-      <div class="dlg__pie"><button type="submit" class="btn btn--bordo">Guardar</button></div>
+      <div class="dlg__pie"><button type="submit" class="btn btn--bordo">Crear usuario</button></div>
     </form>
+  </dialog>
+
+  <dialog class="dlg" id="dlgHistorial">
+    <div class="dlg__cabeza">
+      <h2>Historial</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <ul class="historial" id="listaHistorial"></ul>
   </dialog>
 
   <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
