@@ -3,7 +3,7 @@
   // El catálogo lo carga Valentina desde el panel; acá se lee del servidor.
   let datos;
   try {
-    const r = await fetch('/api/catalogo');
+    const r = await fetch(location.pathname === '/inicio' ? '/api/catalogo?vista=1' : '/api/catalogo');
     if (!r.ok) throw new Error(r.status);
     datos = await r.json();
   } catch (_) {

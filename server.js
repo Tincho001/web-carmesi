@@ -455,7 +455,9 @@ async function handleApi(req, res, url) {
 
   if (route === 'GET /api/catalogo') {
     // Quien entró al panel puede ver la tienda igual, para revisar cómo queda.
-    if ((await inMaintenance()) && !(await currentUser(req))) throw new HttpError(503, 'Sitio en construcción');
+    // ?vista=1 lo manda la vista previa /inicio, que se ve siempre.
+    const preview = url.searchParams.get('vista') === '1';
+    if (!preview && (await inMaintenance()) && !(await currentUser(req))) throw new HttpError(503, 'Sitio en construcción');
     return send(res, 200, await publicCatalog(), { 'Cache-Control': 'no-cache' });
   }
 
@@ -771,6 +773,12 @@ async function handle(req, res) {
     }
 
     if (url.pathname === '/panel/') return send(res, 301, '', { Location: '/panel' });
+    if (url.pathname === '/inicio/') return send(res, 301, '', { Location: '/inicio' });
+    // Vista previa de la tienda: se ve aunque la portada esté en construcción (Google no la indexa).
+    if (url.pathname === '/inicio') {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'no-cache');
+    }
     // En construcción: la tienda no se ve (ni por /index.html), el panel y las imágenes sí.
     const tienda = url.pathname === '/' || url.pathname === '/index.html';
     if (tienda && (await inMaintenance()) && !(await currentUser(req))) return serveFile(res, path.join(PUBLIC_DIR, 'construccion.html'), 'no-cache');
