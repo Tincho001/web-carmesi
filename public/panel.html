@@ -116,14 +116,20 @@
 
     <!-- Paso 1: foto -->
     <div class="paso" id="paso1">
-      <label class="foto-grande" id="fotoCaja">
+      <label class="foto-grande" id="fotoCaja" for="fotoCamara">
         <img id="fotoVista" alt="" hidden>
         <span class="foto-grande__texto" id="fotoTexto">
           <span class="foto-grande__icono" aria-hidden="true">📷</span>
-          Tocá para sacar una foto<br>o elegirla de la galería
+          Tocá para sacar la foto
         </span>
-        <input type="file" id="fotoInput" accept="image/*" hidden>
       </label>
+      <!-- Dos entradas: "capture" abre la cámara directo; la otra, la galería. -->
+      <input type="file" id="fotoCamara" accept="image/*" capture="environment" hidden>
+      <input type="file" id="fotoInput" accept="image/*" hidden>
+      <div class="foto-botones">
+        <button type="button" class="btn btn--bordo" data-foto="camara">📷 Sacar foto</button>
+        <button type="button" class="btn btn--borde" data-foto="galeria">🖼️ Galería</button>
+      </div>
       <p class="ayuda" id="paso1Ayuda">Tip: foto con buena luz y fondo liso, la cartera centrada.</p>
       <button type="button" class="btn btn--bordo btn--ancho" id="paso1Seguir" hidden>Seguir</button>
     </div>
@@ -135,7 +141,8 @@
         <div class="mini-foto__botones">
           <button type="button" class="mini mini--magia" id="quitarFondo">✨ Quitar fondo</button>
           <button type="button" class="mini" id="deshacerFondo" hidden>↩️ Deshacer</button>
-          <button type="button" class="mini" id="cambiarFoto">Cambiar foto</button>
+          <button type="button" class="mini" id="cambiarFoto" data-foto="camara">📷 Sacar otra</button>
+          <button type="button" class="mini" data-foto="galeria">🖼️ Galería</button>
         </div>
       </div>
       <p class="ayuda" id="fondoEstado" hidden></p>

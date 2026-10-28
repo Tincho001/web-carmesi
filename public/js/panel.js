@@ -421,7 +421,11 @@
     return c.toDataURL('image/jpeg', calidad);
   }
 
-  $('cambiarFoto').addEventListener('click', () => $('fotoInput').click());
+  // 📷 abre la cámara directo; 🖼️ abre la galería.
+  dlgA.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-foto]');
+    if (b) $(b.dataset.foto === 'camara' ? 'fotoCamara' : 'fotoInput').click();
+  });
 
   // ✨ Quitar fondo: recorta la cartera y la pone sobre el crema de las demás fotos.
   let fotoAntesDelFondo = null;
@@ -501,7 +505,7 @@
     estadoFondo('');
   }
 
-  $('fotoInput').addEventListener('change', async (e) => {
+  async function fotoElegida(e) {
     const file = e.target.files[0];
     e.target.value = '';
     if (!file) return;
@@ -518,10 +522,12 @@
       avisar(err.message);
       verFoto(fotoDe());
     } finally {
-      $('fotoTexto').innerHTML = '<span class="foto-grande__icono" aria-hidden="true">📷</span>Tocá para sacar una foto<br>o elegirla de la galería';
+      $('fotoTexto').innerHTML = '<span class="foto-grande__icono" aria-hidden="true">📷</span>Tocá para sacar la foto';
       $('fotoTexto').hidden = !!fotoDe();
     }
-  });
+  }
+  $('fotoCamara').addEventListener('change', fotoElegida);
+  $('fotoInput').addEventListener('change', fotoElegida);
 
   $('paso1Seguir').addEventListener('click', () => paso(2));
 

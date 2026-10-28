@@ -373,3 +373,7 @@ button { cursor: pointer; }
 .consulta p { margin: 4px 0 10px; font-size: 13px; color: var(--gris); }
 .excel { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .excel .btn { min-height: 42px; padding: 0 10px; font-size: 12.5px; }
+
+/* ---------- Cámara o galería ---------- */
+.foto-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.foto-botones .btn { min-height: 52px; padding: 0 10px; font-size: 14px; }
