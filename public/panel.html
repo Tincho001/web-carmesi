@@ -28,91 +28,144 @@
   <!-- Panel -->
   <div id="app" hidden>
     <header class="cabeza">
-      <div class="cabeza__marca">
-        <img src="assets/img/monograma-claro.png" alt="" width="30" height="27">
-        <span>Panel</span>
-      </div>
+      <img src="assets/img/monograma-claro.png" alt="" width="30" height="27">
+      <h1 class="cabeza__titulo" id="tituloPantalla">Inicio</h1>
       <a class="cabeza__ver" href="/inicio" target="_blank" rel="noopener">Ver la web ↗</a>
-      <button class="cabeza__menu" type="button" id="abrirMenu" aria-label="Menú">☰</button>
     </header>
 
     <p class="cartel" id="cartelObra" hidden>🧵 La web está <strong>en construcción</strong>: los clientes todavía no ven los productos.</p>
 
-    <nav class="pestanas" role="tablist">
-      <button type="button" role="tab" data-tab="productos" aria-selected="true">Productos</button>
-      <button type="button" role="tab" data-tab="categorias" aria-selected="false" id="tabBtnCategorias">Categorías</button>
-    </nav>
-
-    <section id="tabProductos" class="hoja">
-      <div class="buscar">
-        <input type="search" id="buscar" placeholder="Buscar producto…" aria-label="Buscar producto">
-        <select id="filtroCat" aria-label="Filtrar por categoría"></select>
+    <!-- Inicio -->
+    <section class="pantalla" id="pInicio" data-pantalla="inicio">
+      <p class="saludo" id="saludo"></p>
+      <button type="button" class="grande" id="inicioAgregar" data-perm="products_edit">
+        <span class="grande__icono" aria-hidden="true">📷</span>
+        <span>Agregar producto</span>
+        <small>Sacale una foto y listo</small>
+      </button>
+      <div class="numeros" id="numeros"></div>
+      <div id="ultimos" data-perm="activity">
+        <h2 class="subtitulo">Últimos cambios</h2>
+        <ul class="ultimos" id="listaUltimos"></ul>
       </div>
-      <div id="listaProductos"></div>
-      <button class="flotante" type="button" id="nuevoProducto">+ Nuevo producto</button>
     </section>
 
-    <section id="tabCategorias" class="hoja" hidden>
+    <!-- Productos -->
+    <section class="pantalla" id="pProductos" data-pantalla="productos" hidden>
+      <input type="search" class="buscar" id="buscar" placeholder="Buscar por nombre o color" aria-label="Buscar producto">
+      <div class="chips chips--filtro" id="filtros"></div>
+      <div class="grilla" id="grilla"></div>
+      <button class="flotante" type="button" id="nuevoProducto" data-perm="products_edit">＋ Agregar</button>
+    </section>
+
+    <!-- Categorías -->
+    <section class="pantalla" id="pCategorias" data-pantalla="categorias" hidden>
       <form class="nueva-cat" id="nuevaCat">
-        <input name="name" placeholder="Nueva categoría (ej: Mochilas)" maxlength="60" required aria-label="Nombre de la nueva categoría">
+        <input name="name" placeholder="Nueva categoría, ej: Mochilas" maxlength="60" required aria-label="Nombre de la nueva categoría">
         <button class="btn btn--bordo" type="submit">Agregar</button>
       </form>
       <ul class="cats" id="listaCats"></ul>
-      <p class="ayuda">Con las flechas cambiás el orden en que aparecen en la web. Solo se puede borrar una categoría vacía.</p>
+      <p class="ayuda">Tocá una categoría para ver sus productos. Con las flechas cambiás el orden en la web. Solo se borra una categoría vacía.</p>
     </section>
+
+    <!-- Más -->
+    <section class="pantalla" id="pMas" data-pantalla="mas" hidden>
+      <div class="quien" id="quien"></div>
+      <div class="menu">
+        <button type="button" class="fila" id="menuUsuarios" data-perm="users"><span aria-hidden="true">👥</span> Usuarios</button>
+        <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
+        <button type="button" class="fila" id="menuNegocio" data-perm="settings"><span aria-hidden="true">💬</span> WhatsApp e Instagram</button>
+        <button type="button" class="fila" id="menuNiveles" data-solo="super"><span aria-hidden="true">🔐</span> Niveles y permisos</button>
+        <button type="button" class="fila" id="menuObra" data-solo="super"></button>
+        <button type="button" class="fila" id="menuClave"><span aria-hidden="true">🔑</span> Cambiar mi contraseña</button>
+        <button type="button" class="fila fila--salir" id="salir"><span aria-hidden="true">🚪</span> Salir</button>
+      </div>
+      <div class="firma">
+        <p>Panel hecho por</p>
+        <img src="assets/img/pixel-cuyo-vertical.png" alt="Pixel Cuyo" width="900" height="780">
+      </div>
+    </section>
+
+    <nav class="barra" aria-label="Secciones">
+      <button type="button" data-ir="inicio" aria-current="page"><span aria-hidden="true">🏠</span>Inicio</button>
+      <button type="button" data-ir="productos"><span aria-hidden="true">👜</span>Productos</button>
+      <button type="button" data-ir="categorias" data-perm="categories"><span aria-hidden="true">🗂️</span>Categorías</button>
+      <button type="button" data-ir="mas"><span aria-hidden="true">⋯</span>Más</button>
+    </nav>
   </div>
 
-  <!-- Formulario de producto -->
-  <dialog class="dlg" id="dlgProducto">
-    <form id="formProducto" method="dialog">
-      <div class="dlg__cabeza">
-        <h2 id="tituloProducto">Nuevo producto</h2>
-        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
-      </div>
-      <label class="foto" id="fotoCaja">
-        <img id="fotoVista" alt="" hidden>
-        <span id="fotoTexto">📷 Tocá para sacar o elegir la foto</span>
-        <input type="file" id="fotoInput" accept="image/*" hidden>
-      </label>
-      <label>Nombre <input name="name" maxlength="60" required placeholder="Ej: Cartera Moños"></label>
-      <label>Color / variante <input name="color" maxlength="60" placeholder="Ej: Negro"></label>
-      <div class="dos">
-        <label>Categoría <select name="categoryId" id="selCat" required></select></label>
-        <label>Precio <input name="price" inputmode="numeric" required placeholder="22000"></label>
-      </div>
-      <label class="check"><input type="checkbox" name="soldOut"> Sin stock (se ve, pero no se puede pedir)</label>
-      <label class="check"><input type="checkbox" name="hidden"> Ocultar de la web</label>
-      <p class="error" id="errorProducto" hidden></p>
-      <div class="dlg__pie">
-        <button type="button" class="btn btn--borrar" id="borrarProducto" hidden>Borrar</button>
-        <button type="submit" class="btn btn--bordo" id="guardarProducto">Guardar</button>
-      </div>
-    </form>
-  </dialog>
-
-  <!-- Menú -->
-  <dialog class="dlg" id="dlgMenu">
+  <!-- Ficha de un producto -->
+  <dialog class="dlg dlg--hoja" id="dlgFicha">
     <div class="dlg__cabeza">
-      <h2>Menú</h2>
+      <h2 id="fichaTitulo"></h2>
       <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
     </div>
-    <p class="quien" id="quien"></p>
-    <div class="menu">
-      <button type="button" class="btn btn--borde" id="menuUsuarios" data-perm="users">👥 Usuarios</button>
-      <button type="button" class="btn btn--borde" id="menuHistorial" data-perm="activity">🕑 Historial de cambios</button>
-      <button type="button" class="btn btn--borde" id="menuNegocio" data-perm="settings">Datos del negocio</button>
-      <button type="button" class="btn btn--borde" id="menuNiveles" data-solo="super">🔐 Niveles y permisos</button>
-      <button type="button" class="btn btn--borde" id="menuObra" data-solo="super"></button>
-      <button type="button" class="btn btn--borde" id="menuClave">Cambiar mi contraseña</button>
-      <button type="button" class="btn btn--borrar" id="salir">Salir</button>
+    <div id="fichaCuerpo"></div>
+  </dialog>
+
+  <!-- Asistente para agregar o editar -->
+  <dialog class="dlg dlg--hoja dlg--asistente" id="dlgAsistente">
+    <div class="asist__cabeza">
+      <button type="button" class="cerrar" id="asistAtras" aria-label="Volver">←</button>
+      <h2 id="asistTitulo">Nuevo producto</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
     </div>
-    <p class="firma">Panel hecho por <strong>Pixel Cuyo</strong></p>
+    <div class="pasos" id="asistPasos" aria-hidden="true"><span></span><span></span><span></span></div>
+
+    <!-- Paso 1: foto -->
+    <div class="paso" id="paso1">
+      <label class="foto-grande" id="fotoCaja">
+        <img id="fotoVista" alt="" hidden>
+        <span class="foto-grande__texto" id="fotoTexto">
+          <span class="foto-grande__icono" aria-hidden="true">📷</span>
+          Tocá para sacar una foto<br>o elegirla de la galería
+        </span>
+        <input type="file" id="fotoInput" accept="image/*" hidden>
+      </label>
+      <p class="ayuda" id="paso1Ayuda">Tip: foto con buena luz y fondo liso, la cartera centrada.</p>
+      <button type="button" class="btn btn--bordo btn--ancho" id="paso1Seguir" hidden>Seguir</button>
+    </div>
+
+    <!-- Paso 2: datos -->
+    <div class="paso" id="paso2" hidden>
+      <div class="mini-foto" id="miniFoto">
+        <img id="miniFotoImg" alt="">
+        <button type="button" class="mini" id="cambiarFoto">Cambiar foto</button>
+      </div>
+      <label>Nombre <input id="aNombre" maxlength="60" list="nombresUsados" placeholder="Cartera Moños" autocomplete="off"></label>
+      <datalist id="nombresUsados"></datalist>
+      <div class="campo">
+        <span class="campo__titulo">Color</span>
+        <div class="chips" id="chipsColor"></div>
+        <input id="aColor" maxlength="60" placeholder="O escribí otro color" aria-label="Color">
+      </div>
+      <div class="campo">
+        <span class="campo__titulo">Categoría</span>
+        <div class="chips" id="chipsCat"></div>
+      </div>
+      <label>Precio
+        <span class="precio"><span>$</span><input id="aPrecio" inputmode="numeric" placeholder="22.000" autocomplete="off"></span>
+      </label>
+      <label class="switch"><input type="checkbox" id="aSinStock"><span></span> Sin stock <small>se ve, pero no se puede pedir</small></label>
+      <label class="switch"><input type="checkbox" id="aOculto"><span></span> Oculto <small>no aparece en la web</small></label>
+      <p class="error" id="errorPaso2" hidden></p>
+      <button type="button" class="btn btn--bordo btn--ancho" id="paso2Seguir">Siguiente: ver cómo queda</button>
+    </div>
+
+    <!-- Paso 3: vista previa -->
+    <div class="paso" id="paso3" hidden>
+      <p class="ayuda">Así lo van a ver tus clientes:</p>
+      <div class="vista" id="vistaPrevia"></div>
+      <p class="error" id="errorPaso3" hidden></p>
+      <button type="button" class="btn btn--bordo btn--ancho" id="guardar">Guardar</button>
+      <button type="button" class="btn btn--borde btn--ancho" id="guardarOtro">Guardar y cargar otro color</button>
+    </div>
   </dialog>
 
   <dialog class="dlg" id="dlgNegocio">
     <form id="formNegocio">
       <div class="dlg__cabeza">
-        <h2>Datos del negocio</h2>
+        <h2>WhatsApp e Instagram</h2>
         <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
       </div>
       <label>WhatsApp que recibe los pedidos <input name="whatsapp" inputmode="numeric" required placeholder="5492612554003"></label>
