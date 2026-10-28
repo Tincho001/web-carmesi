@@ -1,29 +1,25 @@
-# Web Carmesí
+# Carmesí Bags
 
-Catálogo web de **Carmesí Bags** (carteras y bolsos, Mendoza). Los clientes eligen productos, arman su pedido y lo mandan por WhatsApp.
+Web de Carmesí Bags (carteras y bolsos, Mendoza) con pedido por WhatsApp, y panel para que Valentina cargue categorías y productos desde el celular.
 
-Es un sitio estático (HTML + CSS + JS, sin build): se puede subir tal cual a cualquier hosting.
+- **Web pública:** `/`. Lee el catálogo de `/api/catalogo`.
+- **Panel:** `/panel`. Usuarios `admin` (Pixel Cuyo) y `valentina`. Permite crear, renombrar, ordenar y borrar categorías (solo las vacías), y crear, editar, ordenar, marcar sin stock, ocultar y borrar productos. También se cambian ahí el WhatsApp que recibe los pedidos, el Instagram y la contraseña.
+- **Stack:** Node puro (`http`) + SQLite local (`@libsql/client`). El front es HTML/CSS/JS sin build (`public/`).
+- **Fotos:** se achican en el celu antes de subirlas (1280 px + miniatura de 600 px) y se guardan en `DATA_DIR/uploads`.
+- **Catálogo inicial:** `seed/` (los 19 productos de la muestra). Se carga solo la primera vez que arranca con una base vacía.
 
-## Estructura
-
-- `index.html` — la página
-- `css/styles.css` — estilos (colores en `:root`)
-- `js/productos.js` — **catálogo**: productos, precios, categorías, WhatsApp e Instagram
-- `js/app.js` — filtros, detalle, pedido y armado del mensaje de WhatsApp
-- `assets/img/productos/` — fotos de productos (máx. 900 px)
-
-## Cambiar precios o productos
-
-Todo se edita en `js/productos.js`:
-
-- Precio: cambiar `precio`.
-- Sin stock: agregar `agotado: true`.
-- Producto nuevo: subir la foto a `assets/img/productos/` y copiar una línea cambiando `id`, `nombre`, `color`, `categoria`, `precio` y `foto`.
-
-## Ver en local
+## Correr en la PC
 
 ```bash
-python -m http.server 5173
+npm install
+npm start
 ```
 
-y abrir http://localhost:5173
+Abre en http://localhost:3200. La primera vez crea los usuarios y deja las contraseñas en `data/contrasenas-iniciales.txt`.
+
+## Servidor (Hetzner)
+
+- App en `/var/www/carmesi`, datos (base + fotos) en `/var/www/carmesi-data`, proceso pm2 `carmesi`, puerto 3200.
+- Deploy automático con GitHub Actions (`.github/workflows/deploy.yml`) en cada push a `main`. Necesita los secrets `SERVER_HOST`, `SERVER_USER` y `SSH_PRIVATE_KEY`.
+- nginx: `deploy/nginx-carmesi.conf` + certbot para HTTPS.
+- Ver `.env.example`.

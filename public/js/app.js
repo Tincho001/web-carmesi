@@ -1,7 +1,18 @@
-(function () {
-  const { productos, categorias, whatsapp, instagram } = window.CARMESI;
+(async function () {
   const $ = (id) => document.getElementById(id);
+  // El catálogo lo carga Valentina desde el panel; acá se lee del servidor.
+  let datos;
+  try {
+    const r = await fetch('/api/catalogo');
+    if (!r.ok) throw new Error(r.status);
+    datos = await r.json();
+  } catch (_) {
+    $('grilla').innerHTML = '<p class="error-carga">No pudimos cargar los productos. Probá recargar la página.</p>';
+    return;
+  }
+  const { productos, categorias, whatsapp, instagram } = datos;
   const plata = (n) => '$' + n.toLocaleString('es-AR');
+  const escapar = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const urlWhatsapp = (texto) => `https://wa.me/${whatsapp}?text=${encodeURIComponent(texto)}`;
   const nombreCategoria = (id) => (categorias.find((c) => c.id === id) || {}).nombre || '';
   const porId = (id) => productos.find((p) => p.id === id);
@@ -39,12 +50,12 @@
     const lista = filtro === 'todos' ? productos : productos.filter((p) => p.categoria === filtro);
     grilla.innerHTML = lista.map((p) => `
       <article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}">
-        <button class="tarjeta__foto" type="button" data-ver="${p.id}" aria-label="Ver ${p.nombre} ${p.color}">
-          <img src="assets/img/productos/${p.foto}" alt="${p.nombre} ${p.color}" loading="lazy" width="720" height="900">
+        <button class="tarjeta__foto" type="button" data-ver="${p.id}" aria-label="Ver ${escapar(p.nombre)} ${escapar(p.color)}">
+          <img src="${p.miniatura}" alt="${escapar(p.nombre)} ${escapar(p.color)}" loading="lazy" width="720" height="900">
           ${p.agotado ? '<span class="tarjeta__agotado">Sin stock</span>' : ''}
         </button>
-        <h3 class="tarjeta__nombre">${p.nombre}</h3>
-        <p class="tarjeta__color">${p.color}</p>
+        <h3 class="tarjeta__nombre">${escapar(p.nombre)}</h3>
+        <p class="tarjeta__color">${escapar(p.color)}</p>
         <p class="tarjeta__precio">${plata(p.precio)}</p>
         <button class="tarjeta__agregar" type="button" data-agregar="${p.id}"${p.agotado ? ' disabled' : ''}>
           ${p.agotado ? 'Sin stock' : 'Agregar al pedido'}
@@ -69,7 +80,7 @@
   function abrirDetalle(id) {
     const p = porId(id);
     enDetalle = p;
-    $('detalleFoto').src = `assets/img/productos/${p.foto}`;
+    $('detalleFoto').src = p.foto;
     $('detalleFoto').alt = `${p.nombre} ${p.color}`;
     $('detalleCat').textContent = nombreCategoria(p.categoria);
     $('detalleNombre').textContent = p.nombre;
@@ -130,10 +141,10 @@
     $('pedidoPie').hidden = unidades === 0;
     $('pedidoLista').innerHTML = items.map(({ p, cant }) => `
       <li class="pedido__item">
-        <img src="assets/img/productos/${p.foto}" alt="">
+        <img src="${p.miniatura}" alt="">
         <div>
-          <p class="pedido__item-nombre">${p.nombre}</p>
-          <p class="pedido__item-color">${p.color}</p>
+          <p class="pedido__item-nombre">${escapar(p.nombre)}</p>
+          <p class="pedido__item-color">${escapar(p.color)}</p>
           <p class="pedido__item-precio">${plata(p.precio * cant)}</p>
         </div>
         <div class="cantidad">

@@ -161,6 +161,7 @@ button { font: inherit; cursor: pointer; }
 .tarjeta__agregar:hover { background: var(--crema); color: var(--bordo); }
 .tarjeta__agregar:disabled { opacity: .4; cursor: default; background: transparent; color: var(--crema-texto); }
 
+.error-carga { grid-column: 1 / -1; text-align: center; opacity: .8; }
 .vacio { text-align: center; padding: 30px 0 10px; }
 .vacio p { font-family: var(--serif); font-size: 22px; margin: 0 0 18px; }
 

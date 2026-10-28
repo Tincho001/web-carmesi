@@ -1,0 +1,16 @@
+{
+  "name": "web-carmesi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web y panel de productos de Carmesí Bags",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0"
+  }
+}

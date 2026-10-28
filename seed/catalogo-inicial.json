@@ -1,0 +1,164 @@
+{
+  "categorias": [
+    "Carteras",
+    "Bolsos",
+    "Organizadores",
+    "Set materos",
+    "Neceseres",
+    "Porta botella"
+  ],
+  "productos": [
+    {
+      "nombre": "Cartera Moños",
+      "color": "Negro animal print",
+      "categoria": "Carteras",
+      "precio": 22000,
+      "foto": "monos-negro.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Cartera Moños",
+      "color": "Bordó",
+      "categoria": "Carteras",
+      "precio": 22000,
+      "foto": "monos-bordo.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Cartera Moños",
+      "color": "Caramelo",
+      "categoria": "Carteras",
+      "precio": 22000,
+      "foto": "monos-caramelo.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Cartera Moños",
+      "color": "Crema",
+      "categoria": "Carteras",
+      "precio": 22000,
+      "foto": "monos-crema.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Cartera Moños",
+      "color": "Leopardo",
+      "categoria": "Carteras",
+      "precio": 22000,
+      "foto": "monos-leopardo.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Cartera Hebilla",
+      "color": "Leopardo y marrón",
+      "categoria": "Carteras",
+      "precio": 29000,
+      "foto": "hebilla-leopardo-marron.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Cartera Hebilla",
+      "color": "Leopardo y negro",
+      "categoria": "Carteras",
+      "precio": 29000,
+      "foto": "hebilla-leopardo-negro.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Cartera Tachas",
+      "color": "Marrón",
+      "categoria": "Carteras",
+      "precio": 29000,
+      "foto": "tachas-marron.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Baguette Leopardo",
+      "color": "Cierre dorado",
+      "categoria": "Carteras",
+      "precio": 29000,
+      "foto": "baguette-leopardo-dorado.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Cartera Solapa",
+      "color": "Negro animal print",
+      "categoria": "Carteras",
+      "precio": 29000,
+      "foto": "solapa-leopardo-negro.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Bolso Cinturón",
+      "color": "Negro",
+      "categoria": "Bolsos",
+      "precio": 30000,
+      "foto": "tote-cinturon-negro.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Bolso Cinturón",
+      "color": "Marrón",
+      "categoria": "Bolsos",
+      "precio": 30000,
+      "foto": "tote-cinturon-marron.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Bolso Cinturón",
+      "color": "Negro animal print",
+      "categoria": "Bolsos",
+      "precio": 30000,
+      "foto": "tote-cinturon-leopardo-negro.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Tote Clásico",
+      "color": "Marrón",
+      "categoria": "Bolsos",
+      "precio": 30000,
+      "foto": "tote-marron.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Set Tote + Neceser",
+      "color": "Negro",
+      "categoria": "Bolsos",
+      "precio": 32000,
+      "foto": "set-tote-negro.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Set Tote + Neceser",
+      "color": "Marrón",
+      "categoria": "Bolsos",
+      "precio": 32000,
+      "foto": "set-tote-marron.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Set Gamuza + Monedero",
+      "color": "Negro",
+      "categoria": "Bolsos",
+      "precio": 32000,
+      "foto": "set-gamuza-negro.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Set Gamuza + Monedero",
+      "color": "Marrón",
+      "categoria": "Bolsos",
+      "precio": 32000,
+      "foto": "set-gamuza-marron.jpg",
+      "agotado": false
+    },
+    {
+      "nombre": "Set Gamuza + Monedero",
+      "color": "Negro animal print",
+      "categoria": "Bolsos",
+      "precio": 32000,
+      "foto": "set-gamuza-leopardo-negro.jpg",
+      "agotado": false
+    }
+  ]
+}
