@@ -533,3 +533,13 @@ button { cursor: pointer; }
 .ultimos > li, .historial > li { position: relative; padding-right: 40px !important; }
 .cambio__borrar { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(43, 26, 28, .06); color: var(--gris); font-size: 12px; line-height: 1; }
 .cambio__borrar:hover { background: #f6dede; color: #a3242e; }
+
+/* ---------- Alias con botón para copiar ---------- */
+.copiable { display: flex; gap: 6px; align-items: center; }
+.copiable input { flex: 1; min-width: 0; font: inherit; }
+.copiable .mini { white-space: nowrap; min-height: 40px; }
+.cuota__datos { display: grid; gap: 6px; text-align: left; white-space: normal; }
+.cuota__etiqueta { font-size: 11.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.cuota__datos input { padding: 10px 12px; border: 1px solid #e6c9a8; border-radius: 10px; background: #fff; font: inherit; font-size: 15px; font-weight: 600; color: var(--tinta); }
+.cuota__datos small { font-size: 13px; }
+.cuota__datos [hidden] { display: none; }

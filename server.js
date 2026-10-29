@@ -459,7 +459,7 @@ async function getFaq() {
 }
 
 // Cuota mensual de la web (la cobra Pixel Cuyo): aviso a las administradoras unos días antes del vencimiento.
-const DEFAULT_CUOTA = { activo: true, dia: 28, aviso: 5, monto: '', datos: '' };
+const DEFAULT_CUOTA = { activo: true, dia: 28, aviso: 5, monto: '', alias: '', titular: '' };
 async function getCuota() {
   let saved = {};
   try { saved = JSON.parse((await getMeta('cuota')) || '{}'); } catch { saved = {}; }
@@ -906,7 +906,8 @@ async function handleApi(req, res, url) {
     const visto = (await getUser(user.id)).fee_notice_day === diaAR(Date.now());
     const mostrar = user.role === 'admin' && toca && !visto;
     return send(res, 200, mostrar || url.searchParams.has('prueba') && can.super(user)
-      ? { mostrar: true, dia: c.dia, faltan: Math.max(0, faltan), monto: c.monto, datos: c.datos }
+      // En la vista de prueba, si hoy no toca, se muestra como si faltaran unos días.
+      ? { mostrar: true, dia: c.dia, faltan: toca ? faltan : Math.min(3, c.aviso), monto: c.monto, alias: c.alias, titular: c.titular }
       : { mostrar: false });
   }
   if (route === 'POST /api/cuota/visto') {
@@ -924,7 +925,8 @@ async function handleApi(req, res, url) {
     const aviso = Math.round(Number(body.aviso));
     if (!(dia >= 1 && dia <= 28)) throw new HttpError(400, 'El día tiene que ser entre 1 y 28 (así existe en todos los meses)');
     if (!(aviso >= 0 && aviso <= 15)) throw new HttpError(400, 'Los días de aviso tienen que ser entre 0 y 15');
-    const c = { activo: !!body.activo, dia, aviso, monto: cleanText(body.monto, 30), datos: cleanDescription(body.datos).slice(0, 300) };
+    const alias = cleanText(body.alias, 60).replace(/\s+/g, '');
+    const c = { activo: !!body.activo, dia, aviso, monto: cleanText(body.monto, 30), alias, titular: cleanText(body.titular, 80) };
     await setMeta('cuota', JSON.stringify(c));
     return send(res, 200, c);
   }

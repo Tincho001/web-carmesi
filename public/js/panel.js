@@ -373,8 +373,10 @@
     $('cuotaTexto').innerHTML = `El <b>día ${c.dia}</b> vence la cuota mensual (${cuando}). ${c.faltan === 0 ? 'Aboná hoy' : 'Aboná antes de esa fecha'} para seguir usando la tienda online y el panel sin cortes 😊`;
     $('cuotaMonto').hidden = !c.monto;
     $('cuotaMonto').textContent = c.monto ? `Monto: ${c.monto}` : '';
-    $('cuotaDatos').hidden = !c.datos;
-    $('cuotaDatos').textContent = c.datos || '';
+    $('cuotaDatos').hidden = !c.alias && !c.titular;
+    $('cuotaAlias').value = c.alias || '';
+    $('cuotaAlias').parentElement.hidden = !c.alias;
+    $('cuotaTitular').textContent = c.titular ? `A nombre de ${c.titular}` : '';
     $('cuotaWa').href = `https://wa.me/${WA_MARTIN}?text=${encodeURIComponent(`¡Hola Martín! Soy ${yo.alias || yo.username} de Carmesí. Te escribo por la cuota de la web del día ${c.dia}: `)}`;
     $('dlgCuota').showModal();
   }
@@ -385,6 +387,20 @@
     if (c.mostrar) mostrarCuota(c);
   }
   $('cuotaOk').addEventListener('click', () => $('dlgCuota').close());
+  // Botoncito 📋 para copiar el alias (en el aviso y en los ajustes).
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-copiar]');
+    if (!b) return;
+    const input = $(b.dataset.copiar);
+    if (!input.value) return avisar('No hay nada para copiar');
+    try { await navigator.clipboard.writeText(input.value); } catch (_) {
+      input.select();
+      return avisar('Mantené apretado para copiar');
+    }
+    b.textContent = '✓ Copiado';
+    avisar('Alias copiado ✓');
+    setTimeout(() => { b.textContent = '📋 Copiar'; }, 1800);
+  });
   // Se cierre como se cierre, hasta mañana no vuelve a salir.
   $('dlgCuota').addEventListener('close', () => {
     if (cuotaDePrueba) { cuotaDePrueba = false; return; }
@@ -399,7 +415,8 @@
       f.dia.value = c.dia;
       f.aviso.value = c.aviso;
       f.monto.value = c.monto;
-      f.datos.value = c.datos;
+      f.alias.value = c.alias || '';
+      f.titular.value = c.titular || '';
       mostrarError($('errorCuota'), null);
       $('dlgCuotaConfig').showModal();
     } catch (err) { avisar(err.message); }
@@ -408,7 +425,7 @@
     e.preventDefault();
     const f = e.target;
     try {
-      await api('PUT', '/api/cuota/config', { activo: f.activo.checked, dia: f.dia.value, aviso: f.aviso.value, monto: f.monto.value, datos: f.datos.value });
+      await api('PUT', '/api/cuota/config', { activo: f.activo.checked, dia: f.dia.value, aviso: f.aviso.value, monto: f.monto.value, alias: f.alias.value, titular: f.titular.value });
       $('dlgCuotaConfig').close();
       avisar('Aviso de la cuota guardado ✓');
     } catch (err) { mostrarError($('errorCuota'), err); }

@@ -363,7 +363,14 @@
     <h2 id="cuotaTitulo"></h2>
     <p id="cuotaTexto"></p>
     <p class="cuota__monto" id="cuotaMonto" hidden></p>
-    <p class="cuota__datos" id="cuotaDatos" hidden></p>
+    <div class="cuota__datos" id="cuotaDatos" hidden>
+      <span class="cuota__etiqueta">Alias para transferir</span>
+      <div class="copiable">
+        <input id="cuotaAlias" readonly aria-label="Alias para transferir">
+        <button type="button" class="mini" data-copiar="cuotaAlias">📋 Copiar</button>
+      </div>
+      <small id="cuotaTitular"></small>
+    </div>
     <a class="btn btn--wa btn--ancho" id="cuotaWa" target="_blank" rel="noopener">💬 Escribirle a Martín</a>
     <button type="button" class="btn btn--bordo btn--ancho" id="cuotaOk">Entendido</button>
     <p class="ayuda cuota__pie">Este aviso aparece una vez por día hasta el vencimiento.</p>
@@ -383,7 +390,13 @@
         <label>Avisar desde (días antes) <input name="aviso" type="number" min="0" max="15" inputmode="numeric" required></label>
       </div>
       <label>Monto <small class="opcional">(opcional)</small><input name="monto" maxlength="30" placeholder="Ej: $15.000"></label>
-      <label>Datos para pagar <small class="opcional">(opcional)</small><textarea name="datos" rows="3" maxlength="300" placeholder="Ej: Alias: pixel.cuyo — Titular: Martín…"></textarea></label>
+      <label>Alias <small class="opcional">(opcional)</small>
+        <span class="copiable">
+          <input name="alias" id="cfgAlias" maxlength="60" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Ej: pixel.cuyo.mp">
+          <button type="button" class="mini" data-copiar="cfgAlias">📋 Copiar</button>
+        </span>
+      </label>
+      <label>A nombre de <small class="opcional">(titular de la cuenta)</small><input name="titular" maxlength="80" placeholder="Ej: Martín …"></label>
       <p class="error" id="errorCuota" hidden></p>
       <div class="dlg__pie textos__pie">
         <button type="button" class="btn btn--borde" id="cuotaPrueba">👀 Ver cómo se ve</button>
