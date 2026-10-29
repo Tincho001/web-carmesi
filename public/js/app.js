@@ -1,9 +1,11 @@
 (async function () {
   const $ = (id) => document.getElementById(id);
   // El catálogo lo carga Valentina desde el panel; acá se lee del servidor.
+  // Vista previa (mientras la web está en construcción): /inicio o cualquier página con ?vista=1.
+  const vista = location.pathname === '/inicio' || new URLSearchParams(location.search).has('vista');
   let datos;
   try {
-    const r = await fetch(location.pathname === '/inicio' ? '/api/catalogo?vista=1' : '/api/catalogo');
+    const r = await fetch(vista ? '/api/catalogo?vista=1' : '/api/catalogo');
     if (!r.ok) throw new Error(r.status);
     datos = await r.json();
   } catch (_) {
@@ -21,10 +23,38 @@
   const urlWhatsapp = (texto) => `https://wa.me/${whatsapp}?text=${encodeURIComponent(texto)}`;
   const nombreCategoria = (id) => (categorias.find((c) => c.id === id) || {}).nombre || '';
   const porId = (id) => productos.find((p) => p.id === id);
+  // Cada producto tiene su página: /producto/cartera-monos-negro
+  const enlace = (p) => p.url + (vista ? '?vista=1' : '');
+  const consulta = (p) => `¡Hola Carmesí! Me interesa la ${p.nombre} (${p.color}) de ${plata(p.precio)}. ¿Está disponible?\n${location.origin}${p.url}`;
+
+  async function compartir(p) {
+    const url = location.origin + p.url;
+    const titulo = `${p.nombre} ${p.color} — ${plata(p.precio)} | Carmesí Bags`;
+    if (navigator.share) {
+      try { await navigator.share({ title: titulo, url }); } catch (_) { /* la cerró */ }
+      return;
+    }
+    try { await navigator.clipboard.writeText(url); avisar('Link copiado ✓'); } catch (_) { window.prompt('Copiá el link:', url); }
+  }
+
+  // Carrusel de fotos con puntitos y flechas (en el detalle y en la página del producto).
+  function carrusel(fotos, puntos, antes, despues) {
+    fotos.addEventListener('scroll', () => {
+      const i = Math.round(fotos.scrollLeft / fotos.clientWidth);
+      puntos.querySelectorAll('span').forEach((s, k) => s.classList.toggle('on', k === i));
+    });
+    antes.addEventListener('click', () => fotos.scrollBy({ left: -fotos.clientWidth, behavior: 'smooth' }));
+    despues.addEventListener('click', () => fotos.scrollBy({ left: fotos.clientWidth, behavior: 'smooth' }));
+  }
+
+  // En la vista previa, los links a la portada se quedan dentro de la vista previa.
+  if (vista) {
+    document.querySelectorAll('a[href="/"], a[href^="/#"]').forEach((a) => { a.href = '/inicio' + a.getAttribute('href').slice(1); });
+  }
 
   // ---------- Links fijos ----------
   const saludo = '¡Hola Carmesí! Quería hacer una consulta 😊';
-  $('waPortada').href = urlWhatsapp(saludo);
+  if ($('waPortada')) $('waPortada').href = urlWhatsapp(saludo); // la página de un producto no tiene portada
   $('waFlotante').href = urlWhatsapp(saludo);
   $('waPie').href = urlWhatsapp(saludo);
   $('igPie').href = `https://instagram.com/${instagram}`;
@@ -55,12 +85,12 @@
     const lista = filtro === 'todos' ? productos : productos.filter((p) => p.categoria === filtro);
     grilla.innerHTML = lista.map((p) => `
       <article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}">
-        <button class="tarjeta__foto" type="button" data-ver="${p.id}" aria-label="Ver ${escapar(p.nombre)} ${escapar(p.color)}">
+        <a class="tarjeta__foto" href="${enlace(p)}" data-ver="${p.id}" aria-label="Ver ${escapar(p.nombre)} ${escapar(p.color)}">
           <img src="${p.miniatura}" alt="${escapar(p.nombre)} ${escapar(p.color)}" loading="lazy" width="720" height="900">
           ${p.agotado ? '<span class="tarjeta__agotado">Sin stock</span>' : ''}
           ${p.precioAnterior && !p.agotado ? `<span class="tarjeta__oferta">Oferta -${descuento(p)}%</span>` : ''}
           ${p.fotos && p.fotos.length > 1 ? `<span class="tarjeta__fotos">📷 ${p.fotos.length}</span>` : ''}
-        </button>
+        </a>
         <h3 class="tarjeta__nombre">${escapar(p.nombre)}</h3>
         <p class="tarjeta__color">${escapar(p.color)}</p>
         <p class="tarjeta__precio">${precioHtml(p)}</p>
@@ -76,7 +106,8 @@
   }
   grilla.addEventListener('click', (e) => {
     const ver = e.target.closest('[data-ver]');
-    if (ver) return abrirDetalle(ver.dataset.ver);
+    // Toque normal: se abre el detalle acá mismo. Ctrl/⌘ + clic abre la página del producto.
+    if (ver && !(e.ctrlKey || e.metaKey || e.shiftKey)) { e.preventDefault(); return abrirDetalle(ver.dataset.ver); }
     const agregar = e.target.closest('[data-agregar]');
     if (agregar) agregarAlPedido(agregar.dataset.agregar);
   });
@@ -105,16 +136,11 @@
     $('detalleDesc').hidden = !p.descripcion;
     $('detalleAgregar').disabled = !!p.agotado;
     $('detalleAgregar').textContent = p.agotado ? 'Sin stock' : 'Agregar al pedido';
-    $('detalleConsultar').href = urlWhatsapp(`¡Hola Carmesí! Me interesa la ${p.nombre} (${p.color}) de ${plata(p.precio)}. ¿Está disponible?`);
+    $('detalleConsultar').href = urlWhatsapp(consulta(p));
     detalle.showModal();
   }
-  const carrusel = $('detalleFotos');
-  carrusel.addEventListener('scroll', () => {
-    const i = Math.round(carrusel.scrollLeft / carrusel.clientWidth);
-    $('detallePuntos').querySelectorAll('span').forEach((s, k) => s.classList.toggle('on', k === i));
-  });
-  $('fotoAnterior').addEventListener('click', () => carrusel.scrollBy({ left: -carrusel.clientWidth, behavior: 'smooth' }));
-  $('fotoSiguiente').addEventListener('click', () => carrusel.scrollBy({ left: carrusel.clientWidth, behavior: 'smooth' }));
+  carrusel($('detalleFotos'), $('detallePuntos'), $('fotoAnterior'), $('fotoSiguiente'));
+  $('detalleCompartir').addEventListener('click', () => compartir(enDetalle));
 
   $('detalleAgregar').addEventListener('click', () => {
     agregarAlPedido(enDetalle.id);
@@ -207,6 +233,17 @@
     a.classList.add('aviso--visible');
     clearTimeout(temporizador);
     temporizador = setTimeout(() => a.classList.remove('aviso--visible'), 1800);
+  }
+
+  // ---------- Página de un producto (la arma el servidor; acá se le dan vida a los botones) ----------
+  const pagina = $('producto');
+  const enPagina = pagina && porId(pagina.dataset.id);
+  if (enPagina) {
+    carrusel($('prodFotos'), $('prodPuntos'), $('prodAnterior'), $('prodSiguiente'));
+    $('prodAgregar').addEventListener('click', () => agregarAlPedido(enPagina.id));
+    $('prodConsultar').href = urlWhatsapp(consulta(enPagina));
+    $('prodCompartir').addEventListener('click', () => compartir(enPagina));
+    $('etiquetaProductos').textContent = 'Más productos';
   }
 
   pintarGrilla();

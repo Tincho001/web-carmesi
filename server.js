@@ -573,6 +573,7 @@ const PRODUCT_ORDER = 'ORDER BY c.position, c.id, p.position, p.id';
 async function publicCatalog() {
   const cats = (await db.execute('SELECT id, name FROM categories ORDER BY position, id')).rows;
   const prods = (await db.execute(`SELECT p.* FROM products p JOIN categories c ON c.id = p.category_id WHERE p.hidden = 0 ${PRODUCT_ORDER}`)).rows;
+  const slugs = await productSlugs();
   return {
     ...(await getSettings()),
     categorias: cats.map((c) => ({ id: String(c.id), nombre: c.name })),
@@ -580,6 +581,7 @@ async function publicCatalog() {
       id: String(p.id), nombre: p.name, color: p.color, descripcion: p.description || '', categoria: String(p.category_id), precio: p.price, precioAnterior: p.old_price || null,
       foto: photoUrl(p.photo), miniatura: photoUrl(p.thumb || p.photo), agotado: !!p.sold_out,
       fotos: [p.photo, ...galleryOf(p)].filter(Boolean).map(photoUrl),
+      url: '/producto/' + slugs.get(String(p.id)),
     })),
   };
 }
@@ -818,6 +820,14 @@ async function handleApi(req, res, url) {
     });
     await logActivity('product', r.rows[0].id, productLabel(r.rows[0]), user, 'create');
     return send(res, 201, { product: adminProduct(r.rows[0]) });
+  }
+
+  // Link para compartir un producto (desde el panel).
+  const plink = url.pathname.match(/^\/api\/products\/(\d+)\/link$/);
+  if (plink && req.method === 'GET') {
+    const s = (await productSlugs()).get(plink[1]);
+    if (!s) throw new HttpError(404, 'El producto no existe');
+    return send(res, 200, { url: `${SITE_URL}/producto/${s}`, enObra: await inMaintenance() });
   }
 
   const pmove = url.pathname.match(/^\/api\/products\/(\d+)\/move$/);
@@ -1079,6 +1089,21 @@ function serveFile(res, file, cache) {
 }
 
 // ---------- SEO ----------
+// Link de cada producto: /producto/cartera-monos-negro. Si dos se llaman igual, el más nuevo lleva el número.
+const slugify = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'producto';
+async function productSlugs() {
+  const rows = (await db.execute('SELECT id, name, color FROM products ORDER BY id')).rows;
+  const usados = new Set(), out = new Map();
+  for (const p of rows) {
+    let s = slugify(`${p.name} ${p.color}`);
+    if (usados.has(s)) s = `${s}-${p.id}`;
+    usados.add(s);
+    out.set(String(p.id), s);
+  }
+  return out;
+}
+
 // La tienda arma sus productos con JS; para Google el servidor ya los manda dentro del HTML
 // (tarjetas + datos estructurados), así los encuentra aunque no ejecute el JS.
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1086,8 +1111,7 @@ const abs = (u) => (u && u.startsWith('/') ? SITE_URL + u : u);
 const plataAR = (n) => '$' + Number(n).toLocaleString('es-AR');
 const ZONAS = ['Mendoza', 'Godoy Cruz', 'Guaymallén', 'Las Heras', 'Maipú', 'Luján de Cuyo'];
 
-async function renderTienda() {
-  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+async function datosTienda() {
   const cat = await publicCatalog();
   const nombreCat = (id) => (cat.categorias.find((c) => c.id === id) || {}).nombre || '';
   const tienda = {
@@ -1113,40 +1137,125 @@ async function renderTienda() {
     itemListElement: cat.productos.map((p, i) => ({
       '@type': 'ListItem',
       position: i + 1,
-      item: {
-        '@type': 'Product',
-        name: [p.nombre, p.color].filter(Boolean).join(' '),
-        image: p.fotos.map(abs),
-        ...(p.descripcion ? { description: p.descripcion } : {}),
-        sku: p.id,
-        category: nombreCat(p.categoria),
-        ...(p.color ? { color: p.color } : {}),
-        brand: { '@type': 'Brand', name: 'Carmesí Bags' },
-        offers: {
-          '@type': 'Offer',
-          price: p.precio,
-          priceCurrency: 'ARS',
-          availability: p.agotado ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
-          url: SITE_URL + '/#productos',
-          seller: { '@id': SITE_URL + '/#tienda' },
-        },
-      },
+      url: SITE_URL + p.url,
+      name: [p.nombre, p.color].filter(Boolean).join(' '),
     })),
   };
   const ld = (o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`;
-  const grilla = cat.productos.map((p) => {
+  return { cat, tienda, lista, ld, nombreCat };
+}
+
+// Datos de Google de un producto (su página).
+function productoLd(p, nombreCat) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: [p.nombre, p.color].filter(Boolean).join(' '),
+    image: p.fotos.map(abs),
+    ...(p.descripcion ? { description: p.descripcion } : {}),
+    sku: p.id,
+    category: nombreCat(p.categoria),
+    ...(p.color ? { color: p.color } : {}),
+    brand: { '@type': 'Brand', name: 'Carmesí Bags' },
+    offers: {
+      '@type': 'Offer',
+      url: SITE_URL + p.url,
+      price: p.precio,
+      priceCurrency: 'ARS',
+      availability: p.agotado ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+      itemCondition: 'https://schema.org/NewCondition',
+      seller: { '@id': SITE_URL + '/#tienda' },
+    },
+  };
+}
+
+function tarjetasHtml(productos) {
+  return productos.map((p) => {
     const nom = escHtml([p.nombre, p.color].filter(Boolean).join(' '));
-    return `<article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}"><div class="tarjeta__foto"><img src="${escHtml(p.miniatura)}" alt="${nom} — Carmesí Bags Mendoza" loading="lazy" width="720" height="900"></div><h3 class="tarjeta__nombre">${escHtml(p.nombre)}</h3><p class="tarjeta__color">${escHtml(p.color)}</p><p class="tarjeta__precio">${p.precioAnterior ? `<s>${plataAR(p.precioAnterior)}</s> ` : ''}${plataAR(p.precio)}</p></article>`;
+    return `<article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}"><a class="tarjeta__foto" href="${escHtml(p.url)}"><img src="${escHtml(p.miniatura)}" alt="${nom} — Carmesí Bags Mendoza" loading="lazy" width="720" height="900"></a><h3 class="tarjeta__nombre">${escHtml(p.nombre)}</h3><p class="tarjeta__color">${escHtml(p.color)}</p><p class="tarjeta__precio">${p.precioAnterior ? `<s>${plataAR(p.precioAnterior)}</s> ` : ''}${plataAR(p.precio)}</p></article>`;
   }).join('');
-  return html.replace('<!--SEO-->', ld(tienda) + '\n  ' + ld(lista)).replace('<!--GRILLA-->', grilla);
+}
+
+async function renderTienda() {
+  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+  const { cat, tienda, lista, ld } = await datosTienda();
+  return html.replace('<!--SEO-->', ld(tienda) + '\n  ' + ld(lista)).replace('<!--GRILLA-->', tarjetasHtml(cat.productos));
+}
+
+// Página propia de un producto: misma tienda, con el producto arriba y sus datos para Google.
+async function renderProducto(slug) {
+  const { cat, tienda, ld, nombreCat } = await datosTienda();
+  const p = cat.productos.find((x) => x.url === '/producto/' + slug);
+  if (!p) return null;
+  const nombre = [p.nombre, p.color].filter(Boolean).join(' ');
+  const url = SITE_URL + p.url;
+  const desc = (p.descripcion ? p.descripcion.replace(/\s+/g, ' ').slice(0, 120) + '. ' : '')
+    + `${nombre} a ${plataAR(p.precio)}${p.agotado ? ' (sin stock por ahora)' : ''}. Pedila por WhatsApp en Carmesí Bags, carteras y bolsos en Mendoza.`;
+  const migas = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Inicio', item: SITE_URL + '/' },
+      { '@type': 'ListItem', position: 2, name: nombreCat(p.categoria), item: SITE_URL + '/#productos' },
+      { '@type': 'ListItem', position: 3, name: nombre, item: url },
+    ],
+  };
+  const meta = `<title>${escHtml(nombre)} — Carmesí Bags Mendoza</title>
+  <meta name="description" content="${escHtml(desc)}">
+  <meta name="theme-color" content="#5e1a22">
+  <link rel="canonical" href="${escHtml(url)}">
+  <meta property="og:type" content="product">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:site_name" content="Carmesí Bags">
+  <meta property="og:url" content="${escHtml(url)}">
+  <meta property="og:title" content="${escHtml(nombre)} — ${plataAR(p.precio)}">
+  <meta property="og:description" content="${escHtml(desc)}">
+  <meta property="og:image" content="${escHtml(abs(p.foto))}">
+  <meta property="product:price:amount" content="${p.precio}">
+  <meta property="product:price:currency" content="ARS">
+  <meta name="twitter:card" content="summary_large_image">`;
+  const varias = p.fotos.length > 1;
+  const seccion = `<section class="producto" id="producto" data-id="${escHtml(p.id)}">
+      <nav class="migas" aria-label="Estás en"><a href="/">Inicio</a><span>›</span><a href="/#productos">${escHtml(nombreCat(p.categoria))}</a><span>›</span><span>${escHtml(nombre)}</span></nav>
+      <div class="producto__caja">
+        <div class="detalle__galeria">
+          <div class="detalle__fotos" id="prodFotos">${p.fotos.map((src, i) => `<img src="${escHtml(src)}" alt="${escHtml(nombre)}${varias ? ` (foto ${i + 1} de ${p.fotos.length})` : ''}"${i ? ' loading="lazy"' : ''}>`).join('')}</div>
+          <button class="detalle__flecha detalle__flecha--izq" type="button" id="prodAnterior" aria-label="Foto anterior"${varias ? '' : ' hidden'}>‹</button>
+          <button class="detalle__flecha detalle__flecha--der" type="button" id="prodSiguiente" aria-label="Foto siguiente"${varias ? '' : ' hidden'}>›</button>
+          <div class="detalle__puntos" id="prodPuntos">${!varias ? '' : p.fotos.map((_, i) => `<span${i ? '' : ' class="on"'}></span>`).join('')}</div>
+        </div>
+        <div class="detalle__info">
+          <p class="detalle__cat">${escHtml(nombreCat(p.categoria))}</p>
+          <h1>${escHtml(p.nombre)}</h1>
+          <p class="detalle__color">${escHtml(p.color)}</p>
+          <p class="detalle__precio">${p.precioAnterior ? `<s class="precio-antes">${plataAR(p.precioAnterior)}</s> <span class="precio-oferta">${plataAR(p.precio)}</span> <span class="chip-oferta">-${Math.round((1 - p.precio / p.precioAnterior) * 100)}%</span>` : plataAR(p.precio)}</p>
+          ${p.descripcion ? `<p class="detalle__desc">${escHtml(p.descripcion)}</p>` : ''}
+          <button class="boton boton--bordo" type="button" id="prodAgregar"${p.agotado ? ' disabled' : ''}>${p.agotado ? 'Sin stock' : 'Agregar al pedido'}</button>
+          <a class="boton boton--borde-bordo" id="prodConsultar" href="https://wa.me/${escHtml(cat.whatsapp)}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
+          <button class="compartir" type="button" id="prodCompartir">🔗 Compartir este producto</button>
+        </div>
+      </div>
+    </section>`;
+  // Abajo, primero los de la misma categoría.
+  const resto = [...cat.productos.filter((x) => x !== p && x.categoria === p.categoria), ...cat.productos.filter((x) => x.categoria !== p.categoria)];
+  return fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8')
+    .replace(/<!--META-->[\s\S]*?<!--\/META-->/, meta)
+    .replace(/<!--PORTADA-->[\s\S]*?<!--\/PORTADA-->/, '')
+    .replace('<!--PRODUCTO-->', seccion)
+    .replace('<!--SEO-->', ld(tienda) + '\n  ' + ld(productoLd(p, nombreCat)) + '\n  ' + ld(migas))
+    .replace('<!--GRILLA-->', tarjetasHtml(resto));
 }
 
 async function sitemapXml() {
-  const r = await db.execute('SELECT MAX(updated_at) AS t FROM products');
-  const t = Number(r.rows[0].t) || Date.now();
+  const dia = (t) => new Date(Number(t) || Date.now()).toISOString().slice(0, 10);
+  const slugs = await productSlugs();
+  const rows = (await db.execute('SELECT id, updated_at FROM products WHERE hidden = 0 ORDER BY id')).rows;
+  const ultimo = Math.max(0, ...rows.map((r) => Number(r.updated_at) || 0));
+  const urls = [`  <url><loc>${SITE_URL}/</loc><lastmod>${dia(ultimo)}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>`,
+    ...rows.map((r) => `  <url><loc>${SITE_URL}/producto/${slugs.get(String(r.id))}</loc><lastmod>${dia(r.updated_at)}</lastmod><priority>0.8</priority></url>`)];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${SITE_URL}/</loc><lastmod>${new Date(t).toISOString().slice(0, 10)}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+${urls.join('\n')}
 </urlset>
 `;
 }
@@ -1176,6 +1285,16 @@ async function handle(req, res) {
 
     if (url.pathname === '/panel/') return send(res, 301, '', { Location: '/panel' });
     if (url.pathname === '/inicio/') return send(res, 301, '', { Location: '/inicio' });
+    // Página de cada producto. En construcción solo se ve con ?vista=1 (y Google no la indexa).
+    const prod = url.pathname.match(/^\/producto\/([a-z0-9-]+)\/?$/);
+    if (prod) {
+      const vista = url.searchParams.has('vista');
+      if (!vista && (await inMaintenance())) return serveFile(res, path.join(PUBLIC_DIR, 'construccion.html'), 'no-cache');
+      const html = await renderProducto(prod[1]);
+      // Producto borrado, oculto o con otro nombre: a la tienda.
+      if (!html) return send(res, 302, '', { Location: vista ? '/inicio' : '/#productos' });
+      return send(res, 200, html, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...(vista ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}) });
+    }
     if (url.pathname === '/robots.txt') return send(res, 200, ROBOTS_TXT, { 'Cache-Control': 'public, max-age=3600' });
     // El mapa del sitio recién se publica cuando la web está abierta.
     if (url.pathname === '/sitemap.xml') {

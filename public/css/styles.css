@@ -325,3 +325,18 @@ dialog::backdrop { background: rgba(30, 8, 12, .6); }
 .portada__lema { margin: 14px 0 26px; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; opacity: .8; }
 .sobre { max-width: 720px; margin: 0 auto; padding: 8px 20px 44px; text-align: center; font-size: 14.5px; line-height: 1.7; }
 .sobre p { margin: 12px 0 0; opacity: .9; }
+
+/* ---------- Página de cada producto ---------- */
+a.tarjeta__foto { display: block; }
+.producto { max-width: 1120px; margin: 0 auto; padding: 18px 16px 36px; }
+.migas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; font-size: 12px; opacity: .85; }
+.migas a { color: inherit; }
+.producto__caja { display: grid; overflow: hidden; border-radius: var(--radio); background: var(--crema); color: var(--tinta); }
+.producto .detalle__fotos img { max-height: 70vh; }
+.detalle__info h1 { margin: 0; font-family: var(--serif); font-size: 32px; font-weight: 500; line-height: 1.1; }
+@media (min-width: 760px) {
+  .producto__caja { grid-template-columns: 1.1fr 1fr; }
+  .producto .detalle__fotos img { height: 100%; max-height: 80vh; }
+  .producto .detalle__info { justify-content: center; padding: 32px; }
+}
+.compartir { margin-top: 4px; padding: 10px; border: 0; background: none; color: var(--bordo); font: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

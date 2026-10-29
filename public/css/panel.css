@@ -438,3 +438,5 @@ button { cursor: pointer; }
 .guia__cuerpo ol, .guia__cuerpo ul { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 6px; }
 .guia__tip { padding: 9px 12px; border-radius: 10px; background: #fbf1dd; color: #6b4a12; }
 .guia__martin { margin-top: 14px; }
+
+.link-copiar { width: 100%; margin: 8px 0 0; padding: 12px; border: 1px dashed var(--bordo); border-radius: 10px; font: inherit; font-size: 13px; color: var(--bordo); background: #fff; }

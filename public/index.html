@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!--META-->
   <title>Carmesí Bags — Carteras y bolsos en Mendoza</title>
   <meta name="description" content="Carteras, bolsos, set materos y accesorios de mujer en Mendoza. Mirá el catálogo con precios y hacé tu pedido por WhatsApp. Entregas y envíos en Gran Mendoza.">
   <meta name="theme-color" content="#5e1a22">
@@ -15,20 +16,21 @@
   <meta property="og:description" content="Carteras, bolsos y accesorios. Mirá el catálogo y pedí por WhatsApp.">
   <meta property="og:image" content="https://carmesibags.com.ar/assets/img/logo-completo.jpg">
   <meta name="twitter:card" content="summary_large_image">
+  <!--/META-->
   <meta name="geo.region" content="AR-M">
   <meta name="geo.placename" content="Mendoza">
-  <link rel="icon" type="image/png" href="assets/img/favicon.png">
-  <link rel="apple-touch-icon" href="assets/img/favicon.png">
+  <link rel="icon" type="image/png" href="/assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/img/favicon.png">
   <!--SEO-->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
   <header class="barra">
-    <a class="barra__marca" href="#inicio" aria-label="Carmesí Bags, inicio">
-      <img src="assets/img/monograma-claro.png" alt="" width="34" height="30">
+    <a class="barra__marca" href="/#inicio" aria-label="Carmesí Bags, inicio">
+      <img src="/assets/img/monograma-claro.png" alt="" width="34" height="30">
       <span>Carmesí</span>
     </a>
     <button class="barra__bolsa" type="button" id="abrirPedido" aria-label="Ver mi pedido">
@@ -38,9 +40,11 @@
   </header>
 
   <main>
+    <!--PRODUCTO-->
+    <!--PORTADA-->
     <section class="portada" id="inicio">
       <p class="portada__saludo">Bienvenidos a</p>
-      <img class="portada__monograma" src="assets/img/monograma-claro.png" alt="" width="595" height="530">
+      <img class="portada__monograma" src="/assets/img/monograma-claro.png" alt="" width="595" height="530">
       <h1 class="portada__titulo">Carmesí</h1>
       <p class="portada__sub"><span></span>Bags<span></span></p>
       <p class="portada__lema">Carteras y bolsos en Mendoza</p>
@@ -49,9 +53,10 @@
         <a class="boton boton--borde" id="waPortada" target="_blank" rel="noopener">Comprar por WhatsApp</a>
       </div>
     </section>
+    <!--/PORTADA-->
 
     <section class="catalogo" id="productos">
-      <h2 class="etiqueta">Productos</h2>
+      <h2 class="etiqueta" id="etiquetaProductos">Productos</h2>
       <nav class="filtros" id="filtros" aria-label="Categorías"></nav>
       <div class="grilla" id="grilla"><!--GRILLA--></div>
       <div class="vacio" id="vacio" hidden>
@@ -77,7 +82,7 @@
   </main>
 
   <footer class="pie">
-    <img src="assets/img/monograma-claro.png" alt="" width="70" height="62">
+    <img src="/assets/img/monograma-claro.png" alt="" width="70" height="62">
     <p class="pie__nombre">Carmesí <span>Bags</span></p>
     <ul class="pie__contacto">
       <li><a id="waPie" target="_blank" rel="noopener">WhatsApp 261 255-4003</a></li>
@@ -85,7 +90,7 @@
     </ul>
     <div class="pie__firma">
       <p>Sitio web por</p>
-      <img src="assets/img/pixel-cuyo-vertical.png" alt="Pixel Cuyo" width="900" height="780">
+      <img src="/assets/img/pixel-cuyo-vertical.png" alt="Pixel Cuyo" width="900" height="780">
     </div>
   </footer>
 
@@ -110,6 +115,7 @@
       <p class="detalle__desc" id="detalleDesc" hidden></p>
       <button class="boton boton--bordo" type="button" id="detalleAgregar">Agregar al pedido</button>
       <a class="boton boton--borde-bordo" id="detalleConsultar" target="_blank" rel="noopener">Consultar por WhatsApp</a>
+      <button class="compartir" type="button" id="detalleCompartir">🔗 Compartir este producto</button>
     </div>
   </dialog>
 
@@ -130,6 +136,6 @@
 
   <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
 
-  <script src="js/app.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html>

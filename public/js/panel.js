@@ -329,6 +329,7 @@
           <button type="button" class="btn btn--bordo" data-accion="editar">✏️ Editar</button>
           <button type="button" class="btn btn--borde" data-accion="variante">🎨 Otro color</button>
         </div>
+        ${p.hidden ? '' : '<button type="button" class="btn btn--borde btn--ancho" data-accion="link">🔗 Copiar link para compartir</button>'}
         <div class="ficha__orden">
           <span>Lugar en ${escapar(nombreCat(p.categoryId))}: ${i + 1} de ${deSuCat.length}</span>
           <button type="button" class="mini" data-accion="subir" aria-label="Más arriba" ${i === 0 ? 'disabled' : ''}>↑</button>
@@ -367,6 +368,15 @@
     if (!b) return;
     const p = enFicha;
     try {
+      if (b.dataset.accion === 'link') {
+        const { url, enObra } = await api('GET', `/api/products/${p.id}/link`);
+        try { await navigator.clipboard.writeText(url); } catch (_) {
+          // Si el celular no deja copiar solo, se muestra el link listo para copiar a mano.
+          b.outerHTML = `<input class="link-copiar" readonly value="${escapar(url)}" onclick="this.select()">`;
+          return avisar('Mantené apretado el link para copiarlo');
+        }
+        avisar(enObra ? 'Link copiado ✓ (va a funcionar cuando se abra la web)' : 'Link copiado ✓ Pegalo en WhatsApp o Instagram');
+      }
       if (b.dataset.accion === 'editar') { $('dlgFicha').close(); abrirAsistente({ modo: 'editar', p }); }
       if (b.dataset.accion === 'variante') { $('dlgFicha').close(); abrirAsistente({ modo: 'variante', p }); }
       if (b.dataset.accion === 'subir' || b.dataset.accion === 'bajar') {
