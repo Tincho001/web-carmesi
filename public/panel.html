@@ -81,6 +81,7 @@
         <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
         <button type="button" class="fila" id="menuStats" data-perm="activity"><span aria-hidden="true">📊</span> Lo más visto</button>
         <button type="button" class="fila" id="menuNegocio" data-perm="settings"><span aria-hidden="true">💬</span> WhatsApp y redes</button>
+        <button type="button" class="fila" id="menuTextos" data-perm="settings"><span aria-hidden="true">📝</span> Textos de la web</button>
         <button type="button" class="fila" id="menuFaq" data-perm="settings"><span aria-hidden="true">❓</span> Preguntas frecuentes</button>
         <button type="button" class="fila" id="menuNiveles" data-solo="super"><span aria-hidden="true">🔐</span> Niveles y permisos</button>
         <button type="button" class="fila" id="menuObra" data-solo="super"></button>
@@ -341,6 +342,31 @@
     <p class="ayuda">👀 veces que abrieron el producto · 🛒 lo agregaron al pedido · 💬 consultaron por WhatsApp · 📤 estaba en un pedido enviado. No cuenta lo que se mira con el panel abierto.</p>
   </dialog>
 
+  <dialog class="dlg dlg--hoja" id="dlgTextos">
+    <form id="formTextos">
+      <div class="dlg__cabeza">
+        <h2>📝 Textos de la web</h2>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+      </div>
+      <h3 class="subtitulo">Sobre la tienda</h3>
+      <p class="ayuda">Aparece abajo de los productos. Contá quiénes son, qué venden y dónde entregan: también ayuda a que Google las encuentre.</p>
+      <label>Título <input name="sobreTitulo" maxlength="60" placeholder="Carmesí Bags"></label>
+      <label>Texto
+        <textarea name="sobre" rows="8" maxlength="1500"></textarea>
+        <small class="ayuda">Dejá un <b>renglón vacío</b> entre párrafos. Para resaltar en <b>negrita</b>, poné la frase entre dos asteriscos: **así**.</small>
+      </label>
+      <h3 class="subtitulo">Cinta que pasa de costado</h3>
+      <p class="ayuda">La franja crema debajo de la portada. <b>Una frase por renglón</b> (hasta 8). Podés usar emojis ✨</p>
+      <textarea name="cinta" rows="6"></textarea>
+      <p class="error" id="errorTextos" hidden></p>
+      <div class="dlg__pie textos__pie">
+        <a class="btn btn--borde" href="/inicio" target="_blank" rel="noopener">Ver cómo queda ↗</a>
+        <button type="submit" class="btn btn--bordo">Guardar</button>
+      </div>
+      <button type="button" class="btn btn--borde btn--ancho" id="textosFaq">❓ Editar las preguntas frecuentes</button>
+    </form>
+  </dialog>
+
   <dialog class="dlg dlg--hoja" id="dlgFaq">
     <form id="formFaq">
       <div class="dlg__cabeza">
@@ -552,6 +578,18 @@
     </ul>
     <p>Elegí 7 días, 30 días o 3 meses. Lo que se mira con el panel abierto no cuenta.</p>
     <p class="guia__tip">💡 Lo que más miran y poco piden puede necesitar mejor foto, descripción o una oferta.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="settings">
+        <summary><span aria-hidden="true">📝</span>Cambiar los textos de la web</summary>
+        <div class="guia__cuerpo">
+    <p>En <b>⋯ Más → 📝 Textos de la web</b> cambiás:</p>
+    <ul>
+      <li><b>Sobre la tienda</b>: el título y el texto que aparece abajo de los productos.</li>
+      <li><b>La cinta</b>: las frases que pasan de costado debajo de la portada, una por renglón.</li>
+    </ul>
+    <p>Dejá un renglón vacío entre párrafos. Para poner algo en <b>negrita</b>, escribilo entre dos asteriscos: **así**.</p>
+    <p>Tocá <b>Guardar</b> y después <b>Ver cómo queda ↗</b> para mirarlo en la web.</p>
         </div>
       </details>
       <details class="guia__tema" data-perm="settings">

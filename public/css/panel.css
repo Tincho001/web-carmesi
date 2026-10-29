@@ -486,3 +486,8 @@ button { cursor: pointer; }
 .faq { display: grid; gap: 10px; }
 .faq__item { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--linea); border-radius: 14px; background: #fff; }
 .faq__top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--gris); }
+
+/* ---------- Textos de la web ---------- */
+#dlgTextos .subtitulo { margin: 8px 0 0; }
+#dlgTextos .ayuda { margin: 0; }
+.textos__pie { display: flex; gap: 8px; justify-content: space-between; }

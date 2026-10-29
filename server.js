@@ -432,6 +432,20 @@ const DEFAULT_FAQ = [
   { q: '¿Cómo puedo pagar?', a: 'El pago lo coordinamos por WhatsApp. Escribinos y te contamos las opciones.' },
   { q: '¿Qué pasa si un producto no tiene stock?', a: 'Tocá "Avisame cuando vuelva", dejá tu WhatsApp y te escribimos apenas entre de nuevo.' },
 ];
+// Textos de la tienda que edita la dueña: el "Carmesí Bags" de abajo y las frases de la cinta.
+const DEFAULT_TEXTOS = {
+  sobreTitulo: 'Carmesí Bags',
+  sobre: `Somos una tienda de **carteras y bolsos de mujer en Mendoza**. Tenemos carteras, bolsos tote, set materos, organizadores, neceseres y porta botellas, en distintos colores y estampados.
+
+Elegís lo que te gusta desde la web y nos mandás el pedido por WhatsApp. Coordinamos la entrega o el envío en **Capital, Godoy Cruz, Guaymallén, Las Heras, Maipú y Luján de Cuyo**.`,
+  cinta: ['✨ Nuevos ingresos', '💬 Pedidos por WhatsApp', '🚚 Coordinamos entrega o envío', '👜 Carteras y bolsos en Mendoza', '🔔 Te avisamos cuando vuelve el stock'],
+};
+async function getTextos() {
+  let saved = {};
+  try { saved = JSON.parse((await getMeta('textos')) || '{}'); } catch { saved = {}; }
+  return { ...DEFAULT_TEXTOS, ...saved };
+}
+
 async function getFaq() {
   try {
     const saved = JSON.parse((await getMeta('faq')) || 'null');
@@ -854,6 +868,25 @@ async function handleApi(req, res, url) {
   }
 
   // ----- datos del negocio (WhatsApp e Instagram) -----
+  if (route === 'GET /api/textos') return send(res, 200, await getTextos());
+  if (route === 'PUT /api/textos') {
+    requireRole(can.do(user, 'settings'), 'No tenés permiso para cambiar los textos de la web');
+    const body = await readJson(req);
+    const nuevo = {
+      sobreTitulo: cleanText(body.sobreTitulo, 60),
+      sobre: cleanDescription(body.sobre).slice(0, 1500),
+      cinta: (Array.isArray(body.cinta) ? body.cinta : []).map((f) => cleanText(f, 60)).filter(Boolean).slice(0, 8),
+    };
+    const antes = await getTextos();
+    await setMeta('textos', JSON.stringify(nuevo));
+    const changes = [];
+    if (antes.sobreTitulo !== nuevo.sobreTitulo) changes.push(`título: "${antes.sobreTitulo}" → "${nuevo.sobreTitulo}"`);
+    if (antes.sobre !== nuevo.sobre) changes.push('texto de "sobre la tienda" cambiado');
+    if (antes.cinta.join('|') !== nuevo.cinta.join('|')) changes.push('frases de la cinta cambiadas');
+    if (changes.length) await logActivity('site', null, 'textos de la web', user, 'update', changes);
+    return send(res, 200, nuevo);
+  }
+
   if (route === 'GET /api/faq') return send(res, 200, { preguntas: await getFaq() });
   if (route === 'PUT /api/faq') {
     requireRole(can.do(user, 'settings'), 'No tenés permiso para cambiar las preguntas frecuentes');
@@ -1424,6 +1457,27 @@ function tarjetasHtml(productos) {
   }).join('');
 }
 
+// Texto con un renglón vacío entre párrafos y **negrita**.
+const textoHtml = (t) => t.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
+  .map((p) => `<p>${escHtml(p).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</p>`).join('\n      ');
+function sobreHtml(t) {
+  if (!t.sobre && !t.sobreTitulo) return '';
+  return `<section class="sobre">
+      ${t.sobreTitulo ? `<h2 class="etiqueta">${escHtml(t.sobreTitulo)}</h2>` : ''}
+      ${textoHtml(t.sobre)}
+    </section>`;
+}
+function cintaHtml(frases) {
+  if (!frases.length) return '';
+  // Con pocas frases se repiten, así la cinta siempre llena el ancho.
+  const lleno = Array.from({ length: Math.ceil(6 / frases.length) }, () => frases).flat();
+  const grupo = (oculto) => `<div class="cinta__grupo"${oculto ? ' aria-hidden="true"' : ''}>${lleno.map((f) => `<span>${escHtml(f)}</span>`).join('')}</div>`;
+  return `<div class="cinta">
+      <div class="cinta__pista">${grupo(false)}${grupo(true)}</div>
+    </div>`;
+}
+const conTextos = (html, t) => html.replace('<!--SOBRE-->', sobreHtml(t)).replace('<!--CINTA-->', cintaHtml(t.cinta));
+
 // Preguntas frecuentes: van en el HTML (y en los datos para Google).
 function preguntasHtml(preguntas) {
   if (!preguntas.length) return '';
@@ -1441,7 +1495,7 @@ function preguntasLd(preguntas) {
 }
 
 async function renderTienda() {
-  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+  const html = conTextos(fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8'), await getTextos());
   const { cat, tienda, lista, ld } = await datosTienda();
   return html
     .replace('<!--SEO-->', ld(tienda) + '\n  ' + ld(lista) + (cat.preguntas.length ? '\n  ' + ld(preguntasLd(cat.preguntas)) : ''))
@@ -1507,7 +1561,7 @@ async function renderProducto(slug) {
     </section>`;
   // Abajo, primero los de la misma categoría.
   const resto = [...cat.productos.filter((x) => x !== p && x.categoria === p.categoria), ...cat.productos.filter((x) => x.categoria !== p.categoria)];
-  return fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8')
+  return conTextos(fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8'), await getTextos())
     .replace(/<!--META-->[\s\S]*?<!--\/META-->/, meta)
     .replace(/<!--PORTADA-->[\s\S]*?<!--\/PORTADA-->/, '')
     .replace('<!--PRODUCTO-->', seccion)

@@ -149,4 +149,15 @@ No tenés que hacer nada: funciona solo.`,
 - Se ve sin sonido y está achicado para que cargue rápido.
 Si querés cambiarlo por otro (una colección nueva, una temporada), mandale el video a Martín.`,
   },
+  {
+    id: 15,
+    fecha: '2026-10-29',
+    icono: '📝',
+    titulo: 'Ahora podés cambiar los textos de la web',
+    perm: 'settings',
+    texto: `En **⋯ Más → 📝 Textos de la web** cambiás:
+- El texto **"Carmesí Bags"** que aparece abajo de los productos (quiénes son, qué venden, dónde entregan).
+- Las **frases de la cinta** que pasa de costado debajo de la portada.
+Y las **preguntas frecuentes**, en **⋯ Más → ❓ Preguntas frecuentes**. Revisá sobre todo lo de envíos y pagos, así queda como vos trabajás.`,
+  },
 ];

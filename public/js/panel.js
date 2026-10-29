@@ -165,6 +165,33 @@
   $('menuStats').addEventListener('click', () => { $('dlgStats').showModal(); pintarStats(30); });
   $('statsDias').addEventListener('click', (e) => { const b = e.target.closest('[data-dias]'); if (b) pintarStats(Number(b.dataset.dias)); });
 
+  // ---------- 📝 textos de la web ----------
+  $('menuTextos').addEventListener('click', async () => {
+    try {
+      const t = await api('GET', '/api/textos');
+      const f = $('formTextos');
+      f.sobreTitulo.value = t.sobreTitulo;
+      f.sobre.value = t.sobre;
+      f.cinta.value = t.cinta.join('\n');
+      mostrarError($('errorTextos'), null);
+      $('dlgTextos').showModal();
+    } catch (err) { avisar(err.message); }
+  });
+  $('formTextos').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      await api('PUT', '/api/textos', {
+        sobreTitulo: f.sobreTitulo.value,
+        sobre: f.sobre.value,
+        cinta: f.cinta.value.split('\n').map((x) => x.trim()).filter(Boolean),
+      });
+      avisar('Textos guardados ✓ Ya se ven en la web');
+      $('dlgTextos').close();
+    } catch (err) { mostrarError($('errorTextos'), err); }
+  });
+  $('textosFaq').addEventListener('click', () => { $('dlgTextos').close(); $('menuFaq').click(); });
+
   // ---------- ❓ preguntas frecuentes ----------
   function filaFaq(x = { q: '', a: '' }) {
     const d = document.createElement('div');
