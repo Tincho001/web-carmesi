@@ -138,4 +138,15 @@ Si algún día cambia el usuario, se cambia en **⋯ Más → 💬 WhatsApp y re
 - La bolsita del pedido **salta** cuando agregan algo.
 No tenés que hacer nada: funciona solo.`,
   },
+  {
+    id: 14,
+    fecha: '2026-10-29',
+    icono: '🎬',
+    titulo: 'Video en la portada',
+    perm: '',
+    texto: `La portada de la web ahora tiene de fondo un video de los neceseres de Carmesí 💛
+- En el celu se ve detrás del logo; en la compu, al costado, como un reel.
+- Se ve sin sonido y está achicado para que cargue rápido.
+Si querés cambiarlo por otro (una colección nueva, una temporada), mandale el video a Martín.`,
+  },
 ];

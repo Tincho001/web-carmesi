@@ -126,6 +126,15 @@
     });
   }
 
+  // Video de la portada: no se baja si el celu está en ahorro de datos o pide menos movimiento (queda la foto).
+  const video = $('videoPortada');
+  const ahorro = navigator.connection && (navigator.connection.saveData || /2g/.test(navigator.connection.effectiveType || ''));
+  if (video && !quieto && !ahorro) {
+    video.src = '/assets/video/portada.mp4';
+    video.addEventListener('playing', () => video.classList.add('listo'), { once: true });
+    video.play().catch(() => { /* si el navegador no deja reproducir solo, queda la foto */ });
+  }
+
   // ---------- Grilla ----------
   const grilla = $('grilla');
   function pintarGrilla() {

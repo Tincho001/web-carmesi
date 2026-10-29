@@ -1300,17 +1300,35 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8',
   '.onnx': 'application/octet-stream',
+  '.mp4': 'video/mp4',
 };
 
-function serveFile(res, file, cache) {
+function serveFile(res, file, cache, req) {
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) return send(res, 404, 'No encontrado');
-    res.writeHead(200, {
+    const headers = {
       'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
-      'Content-Length': st.size,
       'Cache-Control': cache,
       'X-Content-Type-Options': 'nosniff',
-    });
+      'Accept-Ranges': 'bytes',
+    };
+    // Pedazos del archivo (los videos se piden así, sobre todo en iPhone).
+    const rango = req && /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    if (rango && (rango[1] || rango[2])) {
+      let desde = rango[1] ? Number(rango[1]) : st.size - Number(rango[2]);
+      let hasta = rango[1] && rango[2] ? Number(rango[2]) : st.size - 1;
+      desde = Math.max(0, desde);
+      hasta = Math.min(hasta, st.size - 1);
+      if (desde > hasta) {
+        res.writeHead(416, { 'Content-Range': `bytes */${st.size}` });
+        return res.end();
+      }
+      res.writeHead(206, { ...headers, 'Content-Range': `bytes ${desde}-${hasta}/${st.size}`, 'Content-Length': hasta - desde + 1 });
+      if (req.method === 'HEAD') return res.end();
+      return fs.createReadStream(file, { start: desde, end: hasta }).pipe(res);
+    }
+    res.writeHead(200, { ...headers, 'Content-Length': st.size });
+    if (req && req.method === 'HEAD') return res.end();
     fs.createReadStream(file).pipe(res);
   });
 }
@@ -1569,7 +1587,7 @@ async function handle(req, res) {
     const file = path.join(PUBLIC_DIR, rel);
     if (!file.startsWith(PUBLIC_DIR + path.sep)) return send(res, 404, 'No encontrado');
     const cache = rel.startsWith('assets/') ? 'public, max-age=604800' : 'no-cache';
-    return serveFile(res, file, cache);
+    return serveFile(res, file, cache, req);
   } catch (err) {
     if (err instanceof HttpError) return send(res, err.status, { error: err.message, ...(err.extra || {}) });
     console.error(err);
