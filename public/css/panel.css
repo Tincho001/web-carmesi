@@ -518,3 +518,13 @@ button { cursor: pointer; }
 /* ---------- El panel como app ---------- */
 #appSistema { margin: 12px 0 0; }
 .app-pasos { margin: 12px 0; padding-left: 22px; display: grid; gap: 8px; font-size: 14px; line-height: 1.5; }
+
+/* ---------- Aviso de la cuota ---------- */
+.cuota { width: min(400px, calc(100% - 32px)); text-align: center; display: none; }
+.cuota[open] { display: grid; gap: 10px; }
+.cuota .cuota__icono { margin: 4px 0 0; font-size: 44px; line-height: 1; }
+.cuota h2 { margin: 0; font-family: var(--serif); font-size: 26px; font-weight: 600; color: var(--bordo); }
+.cuota p { margin: 0; font-size: 14px; line-height: 1.55; }
+.cuota__monto { font-size: 18px !important; font-weight: 600; color: var(--tinta); }
+.cuota__datos { padding: 10px 12px; border-radius: 12px; background: #fbf1dd; color: #6b4a12; white-space: pre-line; font-size: 13.5px !important; }
+.cuota__pie { margin-top: 2px !important; font-size: 11.5px !important; }

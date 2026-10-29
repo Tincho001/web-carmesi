@@ -307,6 +307,8 @@ async function initDb() {
   if (!userCols.includes('pass_view')) await db.execute('ALTER TABLE users ADD COLUMN pass_view TEXT');
   // Quién creó cada usuario: una admin maneja solo a los subadmins que creó ella.
   if (!userCols.includes('created_by_id')) await db.execute('ALTER TABLE users ADD COLUMN created_by_id INTEGER');
+  // Último día en que cada uno cerró el aviso de la cuota (sale una vez por día).
+  if (!userCols.includes('fee_notice_day')) await db.execute("ALTER TABLE users ADD COLUMN fee_notice_day TEXT NOT NULL DEFAULT ''");
   // "Para arrancar": qué primeros pasos ya hizo cada uno.
   if (!userCols.includes('first_steps')) await db.execute("ALTER TABLE users ADD COLUMN first_steps TEXT NOT NULL DEFAULT '[]'");
   // Hasta qué novedad del panel leyó cada uno.
@@ -454,6 +456,20 @@ async function getFaq() {
     if (Array.isArray(saved)) return saved;
   } catch { /* se usa la de fábrica */ }
   return DEFAULT_FAQ;
+}
+
+// Cuota mensual de la web (la cobra Pixel Cuyo): aviso a las administradoras unos días antes del vencimiento.
+const DEFAULT_CUOTA = { activo: true, dia: 28, aviso: 5, monto: '', datos: '' };
+async function getCuota() {
+  let saved = {};
+  try { saved = JSON.parse((await getMeta('cuota')) || '{}'); } catch { saved = {}; }
+  return { ...DEFAULT_CUOTA, ...saved };
+}
+// Si hoy toca avisar: desde "aviso" días antes hasta el día del vencimiento, inclusive.
+function cuotaHoy(c, ahora = Date.now()) {
+  const hoy = Number(diaAR(ahora).slice(8, 10));
+  const faltan = c.dia - hoy;
+  return { toca: c.activo && faltan >= 0 && faltan <= c.aviso, faltan };
 }
 
 // Teléfono argentino a formato de WhatsApp: "261 555-1234" → 5492615551234.
@@ -883,6 +899,36 @@ async function handleApi(req, res, url) {
   }
 
   // ----- datos del negocio (WhatsApp e Instagram) -----
+  // Aviso de la cuota: solo para administradoras (no vendedores ni Pixel Cuyo), una vez por día.
+  if (route === 'GET /api/cuota') {
+    const c = await getCuota();
+    const { toca, faltan } = cuotaHoy(c);
+    const visto = (await getUser(user.id)).fee_notice_day === diaAR(Date.now());
+    const mostrar = user.role === 'admin' && toca && !visto;
+    return send(res, 200, mostrar || url.searchParams.has('prueba') && can.super(user)
+      ? { mostrar: true, dia: c.dia, faltan: Math.max(0, faltan), monto: c.monto, datos: c.datos }
+      : { mostrar: false });
+  }
+  if (route === 'POST /api/cuota/visto') {
+    await db.execute({ sql: 'UPDATE users SET fee_notice_day = ? WHERE id = ?', args: [diaAR(Date.now()), user.id] });
+    return send(res, 200, { ok: true });
+  }
+  if (route === 'GET /api/cuota/config') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo');
+    return send(res, 200, await getCuota());
+  }
+  if (route === 'PUT /api/cuota/config') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo');
+    const body = await readJson(req);
+    const dia = Math.round(Number(body.dia));
+    const aviso = Math.round(Number(body.aviso));
+    if (!(dia >= 1 && dia <= 28)) throw new HttpError(400, 'El día tiene que ser entre 1 y 28 (así existe en todos los meses)');
+    if (!(aviso >= 0 && aviso <= 15)) throw new HttpError(400, 'Los días de aviso tienen que ser entre 0 y 15');
+    const c = { activo: !!body.activo, dia, aviso, monto: cleanText(body.monto, 30), datos: cleanDescription(body.datos).slice(0, 300) };
+    await setMeta('cuota', JSON.stringify(c));
+    return send(res, 200, c);
+  }
+
   if (route === 'GET /api/textos') return send(res, 200, await getTextos());
   if (route === 'PUT /api/textos') {
     requireRole(can.do(user, 'settings'), 'No tenés permiso para cambiar los textos de la web');

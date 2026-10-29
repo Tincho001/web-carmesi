@@ -357,11 +357,71 @@
     $('novedadesN').textContent = n;
   }
   async function revisarNovedades() {
-    try { novedades = await api('GET', '/api/novedades'); } catch (_) { return; }
+    try { novedades = await api('GET', '/api/novedades'); } catch (_) { return revisarCuota(); }
     pintarNovedadesN();
     // A Martín (Pixel Cuyo) no le salta sola: las ve desde Más.
-    if (!puede.super()) mostrarNovedades(true);
+    // El aviso de la cuota sale después, cuando cierra las novedades.
+    if (!puede.super() && mostrarNovedades(true)) $('dlgNovedades').addEventListener('close', revisarCuota, { once: true });
+    else revisarCuota();
   }
+
+  // ---------- 💳 aviso de la cuota (solo administradoras, una vez por día) ----------
+  let cuotaDePrueba = false;
+  function mostrarCuota(c) {
+    const cuando = c.faltan === 0 ? '<b>hoy</b>' : c.faltan === 1 ? '<b>mañana</b>' : `en <b>${c.faltan} días</b>`;
+    $('cuotaTitulo').textContent = c.faltan === 0 ? '¡Hoy vence la cuota de la web!' : 'Se acerca el pago de la web';
+    $('cuotaTexto').innerHTML = `El <b>día ${c.dia}</b> vence la cuota mensual (${cuando}). ${c.faltan === 0 ? 'Aboná hoy' : 'Aboná antes de esa fecha'} para seguir usando la tienda online y el panel sin cortes 😊`;
+    $('cuotaMonto').hidden = !c.monto;
+    $('cuotaMonto').textContent = c.monto ? `Monto: ${c.monto}` : '';
+    $('cuotaDatos').hidden = !c.datos;
+    $('cuotaDatos').textContent = c.datos || '';
+    $('cuotaWa').href = `https://wa.me/${WA_MARTIN}?text=${encodeURIComponent(`¡Hola Martín! Soy ${yo.alias || yo.username} de Carmesí. Te escribo por la cuota de la web del día ${c.dia}: `)}`;
+    $('dlgCuota').showModal();
+  }
+  async function revisarCuota() {
+    if (puede.super()) return;
+    let c;
+    try { c = await api('GET', '/api/cuota'); } catch (_) { return; }
+    if (c.mostrar) mostrarCuota(c);
+  }
+  $('cuotaOk').addEventListener('click', () => $('dlgCuota').close());
+  // Se cierre como se cierre, hasta mañana no vuelve a salir.
+  $('dlgCuota').addEventListener('close', () => {
+    if (cuotaDePrueba) { cuotaDePrueba = false; return; }
+    api('POST', '/api/cuota/visto').catch(() => {});
+  });
+
+  $('menuCuota').addEventListener('click', async () => {
+    try {
+      const c = await api('GET', '/api/cuota/config');
+      const f = $('formCuota');
+      f.activo.checked = c.activo;
+      f.dia.value = c.dia;
+      f.aviso.value = c.aviso;
+      f.monto.value = c.monto;
+      f.datos.value = c.datos;
+      mostrarError($('errorCuota'), null);
+      $('dlgCuotaConfig').showModal();
+    } catch (err) { avisar(err.message); }
+  });
+  $('formCuota').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      await api('PUT', '/api/cuota/config', { activo: f.activo.checked, dia: f.dia.value, aviso: f.aviso.value, monto: f.monto.value, datos: f.datos.value });
+      $('dlgCuotaConfig').close();
+      avisar('Aviso de la cuota guardado ✓');
+    } catch (err) { mostrarError($('errorCuota'), err); }
+  });
+  // Pixel Cuyo puede ver cómo le aparece a Valentina (con lo que está guardado).
+  $('cuotaPrueba').addEventListener('click', async () => {
+    try {
+      const c = await api('GET', '/api/cuota?prueba=1');
+      cuotaDePrueba = true;
+      $('dlgCuotaConfig').close();
+      mostrarCuota(c);
+    } catch (err) { avisar(err.message); }
+  });
   async function marcarLeidas() {
     if (!novedades.items.some((x) => x.id > novedades.visto)) return;
     try { await api('POST', '/api/novedades/visto'); } catch (_) { return; }

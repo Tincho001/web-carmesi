@@ -98,6 +98,7 @@
         <button type="button" class="fila" id="menuTextos" data-perm="settings"><span aria-hidden="true">📝</span> Textos de la web</button>
         <button type="button" class="fila" id="menuFaq" data-perm="settings"><span aria-hidden="true">❓</span> Preguntas frecuentes</button>
         <button type="button" class="fila" id="menuNiveles" data-solo="super"><span aria-hidden="true">🔐</span> Niveles y permisos</button>
+        <button type="button" class="fila" id="menuCuota" data-solo="super"><span aria-hidden="true">💳</span> Aviso de la cuota mensual</button>
         <button type="button" class="fila" id="menuObra" data-solo="super"></button>
         <button type="button" class="fila" id="menuClave"><span aria-hidden="true">🔑</span> Cambiar mi contraseña</button>
         <button type="button" class="fila fila--salir" id="salir"><span aria-hidden="true">🚪</span> Salir</button>
@@ -354,6 +355,41 @@
     <div class="stats-total" id="statsTotal"></div>
     <ul class="stats" id="listaStats"></ul>
     <p class="ayuda">👀 veces que abrieron el producto · 🛒 lo agregaron al pedido · 💬 consultaron por WhatsApp · 📤 estaba en un pedido enviado. No cuenta lo que se mira con el panel abierto.</p>
+  </dialog>
+
+  <!-- Aviso de la cuota (solo administradoras) -->
+  <dialog class="dlg cuota" id="dlgCuota">
+    <p class="cuota__icono" aria-hidden="true">💳</p>
+    <h2 id="cuotaTitulo"></h2>
+    <p id="cuotaTexto"></p>
+    <p class="cuota__monto" id="cuotaMonto" hidden></p>
+    <p class="cuota__datos" id="cuotaDatos" hidden></p>
+    <a class="btn btn--wa btn--ancho" id="cuotaWa" target="_blank" rel="noopener">💬 Escribirle a Martín</a>
+    <button type="button" class="btn btn--bordo btn--ancho" id="cuotaOk">Entendido</button>
+    <p class="ayuda cuota__pie">Este aviso aparece una vez por día hasta el vencimiento.</p>
+  </dialog>
+
+  <!-- Ajustes del aviso de la cuota (solo Pixel Cuyo) -->
+  <dialog class="dlg" id="dlgCuotaConfig">
+    <form id="formCuota">
+      <div class="dlg__cabeza">
+        <h2>💳 Aviso de la cuota</h2>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+      </div>
+      <p class="ayuda">Lo ven solo las administradoras (Valentina y las de su rango), no los vendedores. Sale una vez por día, desde unos días antes hasta el vencimiento.</p>
+      <label class="switch"><input type="checkbox" name="activo"><span></span> Aviso activado</label>
+      <div class="dos">
+        <label>Vence el día <input name="dia" type="number" min="1" max="28" inputmode="numeric" required></label>
+        <label>Avisar desde (días antes) <input name="aviso" type="number" min="0" max="15" inputmode="numeric" required></label>
+      </div>
+      <label>Monto <small class="opcional">(opcional)</small><input name="monto" maxlength="30" placeholder="Ej: $15.000"></label>
+      <label>Datos para pagar <small class="opcional">(opcional)</small><textarea name="datos" rows="3" maxlength="300" placeholder="Ej: Alias: pixel.cuyo — Titular: Martín…"></textarea></label>
+      <p class="error" id="errorCuota" hidden></p>
+      <div class="dlg__pie textos__pie">
+        <button type="button" class="btn btn--borde" id="cuotaPrueba">👀 Ver cómo se ve</button>
+        <button type="submit" class="btn btn--bordo">Guardar</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog class="dlg dlg--hoja" id="dlgApp">
