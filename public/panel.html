@@ -76,6 +76,7 @@
       <div class="quien" id="quien"></div>
       <div class="menu">
         <button type="button" class="fila fila--guia" id="menuGuia"><span aria-hidden="true">📖</span> Cómo usar el panel</button>
+        <button type="button" class="fila" id="menuNovedades"><span aria-hidden="true">🎉</span> Novedades <em class="fila__badge" id="novedadesN" hidden></em></button>
         <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
         <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
         <button type="button" class="fila" id="menuNegocio" data-perm="settings"><span aria-hidden="true">💬</span> WhatsApp e Instagram</button>
@@ -320,6 +321,17 @@
     <ul class="historial" id="listaHistorial"></ul>
   </dialog>
 
+
+  <dialog class="dlg dlg--hoja" id="dlgNovedades">
+    <div class="dlg__cabeza">
+      <h2 id="novedadesTitulo">🎉 Novedades</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <p class="ayuda" id="novedadesSub"></p>
+    <ul class="novedades" id="listaNovedades"></ul>
+    <button type="button" class="btn btn--bordo btn--ancho novedades__ok" id="novedadesOk">¡Entendido! 👍</button>
+    <p class="ayuda novedades__pie">Las podés volver a leer cuando quieras en <b>⋯ Más → 🎉 Novedades</b>.</p>
+  </dialog>
 
   <dialog class="dlg dlg--hoja" id="dlgGuia">
     <div class="dlg__cabeza">

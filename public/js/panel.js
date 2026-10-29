@@ -84,6 +84,7 @@
     $('consultarMartin3').hidden = puede.super();
     pintarAvisos();
     await cargar();
+    revisarNovedades();
     irA(location.hash.slice(1) || 'inicio');
   }
 
@@ -108,6 +109,67 @@
     pintarGrilla();
     pintarCategorias();
   }
+
+  // ---------- 🎉 novedades: al entrar aparece lo que todavía no leyó ----------
+  let novedades = { items: [], visto: 0 };
+  // Texto simple: **negrita** y renglones con "- " como lista.
+  function textoNovedad(t) {
+    const nombre = yo.alias || yo.username;
+    let html = '', lista = false;
+    for (const linea of t.replace(/\{nombre\}/g, nombre).split('\n')) {
+      const l = escapar(linea.trim()).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+      if (l.startsWith('- ')) { if (!lista) { html += '<ul>'; lista = true; } html += `<li>${l.slice(2)}</li>`; continue; }
+      if (lista) { html += '</ul>'; lista = false; }
+      if (l) html += `<p>${l}</p>`;
+    }
+    return html + (lista ? '</ul>' : '');
+  }
+  function mostrarNovedades(soloNuevas) {
+    const primeraVez = soloNuevas && novedades.visto === 0;
+    // La primera vez, en orden (la bienvenida arriba); después, lo más nuevo arriba.
+    const lista = novedades.items.filter((n) => !soloNuevas || n.id > novedades.visto);
+    if (!primeraVez) lista.reverse();
+    if (!lista.length) return false;
+    const fecha = (f) => new Date(f + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
+    $('novedadesTitulo').textContent = primeraVez ? '👋 ¡Bienvenida/o!' : '🎉 Novedades';
+    $('novedadesSub').textContent = soloNuevas
+      ? (lista.length === 1 ? 'Hay algo nuevo en tu panel:' : `Hay ${lista.length} cosas nuevas en tu panel:`)
+      : 'Todo lo que se fue sumando al panel, lo más nuevo arriba.';
+    $('listaNovedades').innerHTML = lista.map((n) => `
+      <li class="novedad${n.id > novedades.visto ? ' novedad--nueva' : ''}">
+        <span class="novedad__icono" aria-hidden="true">${n.icono}</span>
+        <div>
+          <strong>${escapar(n.titulo.replace(/\{nombre\}/g, yo.alias || yo.username))}</strong>
+          <small>${fecha(n.fecha)}${n.id > novedades.visto ? ' · <em>Nuevo</em>' : ''}</small>
+          ${textoNovedad(n.texto)}
+        </div>
+      </li>`).join('');
+    $('dlgNovedades').showModal();
+    return true;
+  }
+  function pintarNovedadesN() {
+    const n = novedades.items.filter((x) => x.id > novedades.visto).length;
+    $('novedadesN').hidden = !n;
+    $('novedadesN').textContent = n;
+  }
+  async function revisarNovedades() {
+    try { novedades = await api('GET', '/api/novedades'); } catch (_) { return; }
+    pintarNovedadesN();
+    // A Martín (Pixel Cuyo) no le salta sola: las ve desde Más.
+    if (!puede.super()) mostrarNovedades(true);
+  }
+  async function marcarLeidas() {
+    if (!novedades.items.some((x) => x.id > novedades.visto)) return;
+    try { await api('POST', '/api/novedades/visto'); } catch (_) { return; }
+    novedades.visto = Math.max(...novedades.items.map((x) => x.id));
+    pintarNovedadesN();
+  }
+  $('novedadesOk').addEventListener('click', () => $('dlgNovedades').close());
+  // Se cierre como se cierre, quedan leídas.
+  $('dlgNovedades').addEventListener('close', marcarLeidas);
+  $('menuNovedades').addEventListener('click', () => {
+    if (!mostrarNovedades(false)) avisar('Todavía no hay novedades');
+  });
 
   // ---------- 📖 guía del panel ----------
   // Cada tema tiene data-perm: solo aparecen los de lo que cada uno puede hacer.

@@ -7,6 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { createClient } = require('@libsql/client');
 const { buildXlsx } = require('./xlsx');
+const NOVEDADES = require('./novedades');
 
 loadEnvFile(path.join(__dirname, '.env'));
 
@@ -302,6 +303,8 @@ async function initDb() {
   if (!userCols.includes('pass_view')) await db.execute('ALTER TABLE users ADD COLUMN pass_view TEXT');
   // Quién creó cada usuario: una admin maneja solo a los subadmins que creó ella.
   if (!userCols.includes('created_by_id')) await db.execute('ALTER TABLE users ADD COLUMN created_by_id INTEGER');
+  // Hasta qué novedad del panel leyó cada uno.
+  if (!userCols.includes('news_seen')) await db.execute('ALTER TABLE users ADD COLUMN news_seen INTEGER NOT NULL DEFAULT 0');
   // Descripción opcional de cada producto (medidas, material, detalles).
   if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'description')) {
     await db.execute("ALTER TABLE products ADD COLUMN description TEXT NOT NULL DEFAULT ''");
@@ -932,6 +935,18 @@ async function handleApi(req, res, url) {
   }
 
   // 🔔 Avisos de la campanita.
+  // Novedades del panel (novedades.js): cada uno ve las de lo que puede hacer.
+  if (route === 'GET /api/novedades') {
+    const visto = Number((await getUser(user.id)).news_seen) || 0;
+    const items = NOVEDADES.filter((n) => !n.perm || n.perm.split('|').some((k) => can.do(user, k)));
+    return send(res, 200, { items, visto });
+  }
+  if (route === 'POST /api/novedades/visto') {
+    const ultimo = Math.max(0, ...NOVEDADES.map((n) => n.id));
+    await db.execute({ sql: 'UPDATE users SET news_seen = ? WHERE id = ?', args: [ultimo, user.id] });
+    return send(res, 200, { ok: true });
+  }
+
   if (route === 'GET /api/avisos') {
     const avisos = [];
     if (can.do(user, 'activity')) {

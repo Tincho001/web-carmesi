@@ -440,3 +440,17 @@ button { cursor: pointer; }
 .guia__martin { margin-top: 14px; }
 
 .link-copiar { width: 100%; margin: 8px 0 0; padding: 12px; border: 1px dashed var(--bordo); border-radius: 10px; font: inherit; font-size: 13px; color: var(--bordo); background: #fff; }
+
+/* ---------- Novedades ---------- */
+.novedades { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.novedad { display: flex; gap: 12px; padding: 14px; border: 1px solid var(--linea); border-radius: 14px; background: #fff; }
+.novedad--nueva { border-color: #e6c9a8; background: #fffaf2; }
+.novedad__icono { font-size: 26px; line-height: 1; }
+.novedad strong { display: block; font-size: 15px; color: var(--tinta); }
+.novedad small { display: block; margin-top: 2px; font-size: 11.5px; color: var(--gris); }
+.novedad small em { font-style: normal; font-weight: 600; color: var(--bordo); }
+.novedad p { margin: 8px 0 0; font-size: 13.5px; line-height: 1.5; }
+.novedad ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 5px; font-size: 13.5px; line-height: 1.5; }
+.novedades__ok { margin-top: 14px; }
+.novedades__pie { text-align: center; margin: 8px 0 0; }
+.fila__badge { margin-left: 6px; min-width: 20px; padding: 1px 6px; border-radius: 99px; background: #b3261e; color: #fff; font-size: 11px; font-style: normal; font-weight: 600; text-align: center; }
