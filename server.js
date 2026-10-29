@@ -15,6 +15,7 @@ const HOST = process.env.HOST || '127.0.0.1';
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, 'data'));
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const SITE_URL = (process.env.SITE_URL || 'https://carmesibags.com.ar').replace(/\/+$/, '');
 const SEED_DIR = path.join(__dirname, 'seed');
 const COMMIT = (process.env.APP_COMMIT_SHA || readText(path.join(__dirname, '.deploy-commit')) || 'dev').trim();
 
@@ -1077,6 +1078,88 @@ function serveFile(res, file, cache) {
   });
 }
 
+// ---------- SEO ----------
+// La tienda arma sus productos con JS; para Google el servidor ya los manda dentro del HTML
+// (tarjetas + datos estructurados), así los encuentra aunque no ejecute el JS.
+const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const abs = (u) => (u && u.startsWith('/') ? SITE_URL + u : u);
+const plataAR = (n) => '$' + Number(n).toLocaleString('es-AR');
+const ZONAS = ['Mendoza', 'Godoy Cruz', 'Guaymallén', 'Las Heras', 'Maipú', 'Luján de Cuyo'];
+
+async function renderTienda() {
+  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
+  const cat = await publicCatalog();
+  const nombreCat = (id) => (cat.categorias.find((c) => c.id === id) || {}).nombre || '';
+  const tienda = {
+    '@context': 'https://schema.org',
+    '@type': 'Store',
+    '@id': SITE_URL + '/#tienda',
+    name: 'Carmesí Bags',
+    description: 'Tienda de carteras, bolsos y accesorios de mujer en Mendoza. Pedidos por WhatsApp.',
+    url: SITE_URL + '/',
+    logo: SITE_URL + '/assets/img/logo-completo.jpg',
+    image: SITE_URL + '/assets/img/logo-completo.jpg',
+    telephone: '+' + cat.whatsapp,
+    priceRange: '$$',
+    currenciesAccepted: 'ARS',
+    address: { '@type': 'PostalAddress', addressLocality: 'Mendoza', addressRegion: 'Mendoza', addressCountry: 'AR' },
+    areaServed: ZONAS.map((name) => ({ '@type': 'City', name })),
+    sameAs: cat.instagram ? [`https://www.instagram.com/${cat.instagram}/`] : [],
+  };
+  const lista = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Carteras y bolsos de Carmesí Bags',
+    itemListElement: cat.productos.map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'Product',
+        name: [p.nombre, p.color].filter(Boolean).join(' '),
+        image: p.fotos.map(abs),
+        ...(p.descripcion ? { description: p.descripcion } : {}),
+        sku: p.id,
+        category: nombreCat(p.categoria),
+        ...(p.color ? { color: p.color } : {}),
+        brand: { '@type': 'Brand', name: 'Carmesí Bags' },
+        offers: {
+          '@type': 'Offer',
+          price: p.precio,
+          priceCurrency: 'ARS',
+          availability: p.agotado ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+          url: SITE_URL + '/#productos',
+          seller: { '@id': SITE_URL + '/#tienda' },
+        },
+      },
+    })),
+  };
+  const ld = (o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`;
+  const grilla = cat.productos.map((p) => {
+    const nom = escHtml([p.nombre, p.color].filter(Boolean).join(' '));
+    return `<article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}"><div class="tarjeta__foto"><img src="${escHtml(p.miniatura)}" alt="${nom} — Carmesí Bags Mendoza" loading="lazy" width="720" height="900"></div><h3 class="tarjeta__nombre">${escHtml(p.nombre)}</h3><p class="tarjeta__color">${escHtml(p.color)}</p><p class="tarjeta__precio">${p.precioAnterior ? `<s>${plataAR(p.precioAnterior)}</s> ` : ''}${plataAR(p.precio)}</p></article>`;
+  }).join('');
+  return html.replace('<!--SEO-->', ld(tienda) + '\n  ' + ld(lista)).replace('<!--GRILLA-->', grilla);
+}
+
+async function sitemapXml() {
+  const r = await db.execute('SELECT MAX(updated_at) AS t FROM products');
+  const t = Number(r.rows[0].t) || Date.now();
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>${SITE_URL}/</loc><lastmod>${new Date(t).toISOString().slice(0, 10)}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+</urlset>
+`;
+}
+
+const ROBOTS_TXT = `User-agent: *
+Allow: /
+Disallow: /panel
+Disallow: /api/
+Disallow: /inicio
+
+Sitemap: ${SITE_URL}/sitemap.xml
+`;
+
 async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
   try {
@@ -1093,15 +1176,22 @@ async function handle(req, res) {
 
     if (url.pathname === '/panel/') return send(res, 301, '', { Location: '/panel' });
     if (url.pathname === '/inicio/') return send(res, 301, '', { Location: '/inicio' });
+    if (url.pathname === '/robots.txt') return send(res, 200, ROBOTS_TXT, { 'Cache-Control': 'public, max-age=3600' });
+    // El mapa del sitio recién se publica cuando la web está abierta.
+    if (url.pathname === '/sitemap.xml') {
+      if (await inMaintenance()) return send(res, 404, 'No encontrado');
+      return send(res, 200, await sitemapXml(), { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+    }
     // Vista previa de la tienda: se ve aunque la portada esté en construcción (Google no la indexa).
     if (url.pathname === '/inicio') {
-      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-      return serveFile(res, path.join(PUBLIC_DIR, 'index.html'), 'no-cache');
+      return send(res, 200, await renderTienda(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex, nofollow' });
     }
     // En construcción: la tienda no se ve (ni por /index.html), el panel y las imágenes sí.
     const tienda = url.pathname === '/' || url.pathname === '/index.html';
     // Siempre, aunque esté logueado: la tienda se revisa en /inicio.
     if (tienda && (await inMaintenance())) return serveFile(res, path.join(PUBLIC_DIR, 'construccion.html'), 'no-cache');
+    if (url.pathname === '/index.html') return send(res, 301, '', { Location: '/' });
+    if (tienda) return send(res, 200, await renderTienda(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     const rel = url.pathname === '/' ? 'index.html'
       : url.pathname === '/panel' ? 'panel.html'
       : decodeURIComponent(url.pathname).replace(/^\/+/, '');
