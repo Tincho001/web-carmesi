@@ -91,6 +91,7 @@
         <button type="button" class="fila fila--guia" id="menuGuia"><span aria-hidden="true">📖</span> Cómo usar el panel</button>
         <button type="button" class="fila" id="menuApp"><span aria-hidden="true">📲</span> Poner el panel en el celu</button>
         <button type="button" class="fila" id="menuNovedades"><span aria-hidden="true">🎉</span> Novedades <em class="fila__badge" id="novedadesN" hidden></em></button>
+        <button type="button" class="fila" id="menuCambios" data-solo="admin" hidden><span aria-hidden="true">✏️</span> Realizar cambios en web <em class="fila__nota" id="cambiosQuedan"></em></button>
         <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
         <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
         <button type="button" class="fila" id="menuStats" data-perm="activity"><span aria-hidden="true">📊</span> Lo más visto</button>
@@ -99,6 +100,7 @@
         <button type="button" class="fila" id="menuFaq" data-perm="settings"><span aria-hidden="true">❓</span> Preguntas frecuentes</button>
         <button type="button" class="fila" id="menuNiveles" data-solo="super"><span aria-hidden="true">🔐</span> Niveles y permisos</button>
         <button type="button" class="fila" id="menuCuota" data-solo="super"><span aria-hidden="true">💳</span> Aviso de la cuota mensual</button>
+        <button type="button" class="fila" id="menuCambiosSugeridos" data-solo="super"><span aria-hidden="true">📬</span> Cambios sugeridos <em class="fila__badge" id="cambiosN" hidden></em></button>
         <button type="button" class="fila" id="menuObra" data-solo="super"></button>
         <button type="button" class="fila" id="menuClave"><span aria-hidden="true">🔑</span> Cambiar mi contraseña</button>
         <button type="button" class="fila fila--salir" id="salir"><span aria-hidden="true">🚪</span> Salir</button>
@@ -406,6 +408,34 @@
     </form>
   </dialog>
 
+  <!-- Pedir cambios en la web (administradoras) -->
+  <dialog class="dlg dlg--hoja" id="dlgCambios">
+    <form id="formCambios">
+      <div class="dlg__cabeza">
+        <h2>✏️ Cambios que querés en tu web</h2>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+      </div>
+      <p class="cambios__sub">Podés pedir hasta <b>3 cambios por mes</b> (no se acumulan de un mes a otro). <span id="cambiosQuedanTxt"></span></p>
+      <label>¿Qué cambio querés?
+        <textarea name="texto" rows="6" maxlength="2000" required placeholder="Ej: Quiero que la portada diga &quot;Nueva colección de verano&quot; y que se vea primero la categoría Set materos."></textarea>
+      </label>
+      <p class="ayuda">💡 Cuanto más clara la explicación, mejor: qué querés cambiar, dónde está y cómo te gustaría que quede. Escribí <b>un cambio por pedido</b>.</p>
+      <p class="error" id="errorCambios" hidden></p>
+      <div class="dlg__pie"><button type="submit" class="btn btn--bordo">Enviar pedido</button></div>
+      <div id="misCambios"></div>
+    </form>
+  </dialog>
+
+  <!-- Cambios sugeridos (Pixel Cuyo) -->
+  <dialog class="dlg dlg--hoja" id="dlgCambiosSugeridos">
+    <div class="dlg__cabeza">
+      <h2>📬 Cambios sugeridos</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <p class="ayuda">Lo que te pidieron cambiar en la web. Ellas ven si está <b>recibido</b>, <b>visto</b> o <b>hecho</b>.</p>
+    <ul class="cambios" id="listaCambios"></ul>
+  </dialog>
+
   <dialog class="dlg dlg--hoja" id="dlgApp">
     <div class="dlg__cabeza">
       <h2>📲 El panel en tu celu</h2>
@@ -692,6 +722,18 @@
       <li>Cambiá el texto, tocá <b>＋ Agregar pregunta</b> o la <b>✕</b> para borrar una.</li>
       <li>Tocá <b>Guardar</b>.</li>
     </ol>
+        </div>
+      </details>
+      <details class="guia__tema" data-solo="admin">
+        <summary><span aria-hidden="true">✏️</span>Pedir cambios en la web</summary>
+        <div class="guia__cuerpo">
+    <p>Si querés algo que no podés cambiar vos desde el panel (un diseño, una sección nueva, otra foto de portada…), pedíselo a Martín:</p>
+    <ol>
+      <li>Andá a <b>⋯ Más → ✏️ Realizar cambios en web</b>.</li>
+      <li>Escribí <b>un cambio por pedido</b>, bien explicado: qué, dónde y cómo te gustaría.</li>
+      <li>Tocá <b>Enviar pedido</b>. Abajo vas a ver si está <b>Recibido</b>, <b>Visto</b> o <b>Hecho</b>.</li>
+    </ol>
+    <p class="guia__tip">💡 Podés pedir hasta <b>3 cambios por mes</b>, y no se acumulan. Cuando los usás, la opción desaparece hasta el mes siguiente.</p>
         </div>
       </details>
       <details class="guia__tema">

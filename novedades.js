@@ -1,7 +1,7 @@
 // Novedades del panel: mensajes para Valentina y su equipo.
 // Cada vez que se suma algo nuevo al panel o a la web, se agrega un mensaje al final con el id siguiente.
 // Al entrar, a cada uno le aparece una ventanita con lo que todavía no leyó.
-// perm: solo lo ven quienes tienen ese permiso (vacío = todos). {nombre} se cambia por el nombre de quien entra.
+// perm: solo lo ven quienes tienen ese permiso (vacío = todos). rol: solo ese rol (ej: 'admin'). {nombre} se cambia por el nombre de quien entra.
 // En el texto: **negrita**, y cada renglón que empieza con "- " es un punto de una lista.
 
 module.exports = [
@@ -169,5 +169,17 @@ Y las **preguntas frecuentes**, en **⋯ Más → ❓ Preguntas frecuentes**. Re
     texto: `Podés tener un ícono de **Carmesí** en la pantalla del celu y entrar al panel con un toque.
 Está explicado en **⋯ Más → 📲 Poner el panel en el celu** (para Android y iPhone).
 En **Inicio** también tenés la lista **🚀 Para arrancar**, con los primeros pasos. Se van tildando solos.`,
+  },
+  {
+    id: 17,
+    fecha: '2026-10-29',
+    icono: '✏️',
+    titulo: 'Pedile cambios a Martín desde el panel',
+    perm: '',
+    rol: 'admin',
+    texto: `¿Querés algo en la web que no podés cambiar vos (un diseño, una sección nueva…)? Pedíselo desde **⋯ Más → ✏️ Realizar cambios en web**.
+- Escribí **un cambio por pedido**, bien explicado.
+- Podés pedir hasta **3 cambios por mes** (no se acumulan).
+- Abajo ves si tu pedido está **Recibido**, **Visto** o **Hecho**.`,
   },
 ];

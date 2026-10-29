@@ -67,6 +67,7 @@
   let permisos = {};
   const puede = {
     super: () => yo.role === 'super',
+    admin: () => yo.role === 'admin',
     hacer: (clave) => yo.role === 'super' || !!permisos[clave],
   };
   let enObra = false;
@@ -97,6 +98,7 @@
     await cargar();
     pintarArranque();
     revisarNovedades();
+    pintarCambiosMenu();
     irA(location.hash.slice(1) || 'inicio');
   }
 
@@ -289,6 +291,100 @@
     if (misPasos().every((p) => pasosHechos.includes(p.id))) avisar('¡Listo! 🎉 Ya tenés todo para arrancar');
   }
 
+  // ---------- ✏️ cambios en la web: las administradoras piden (3 por mes), Pixel Cuyo lee ----------
+  const ESTADO_CAMBIO = { nuevo: '📨 Recibido', visto: '👀 Visto por Martín', hecho: '✅ Hecho' };
+  const fechaCorta = (ms) => new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  let cambiosMios = null;
+  async function pintarCambiosMenu() {
+    if (puede.super()) {
+      try {
+        const r = await api('GET', '/api/cambios');
+        $('cambiosN').hidden = !r.nuevos;
+        $('cambiosN').textContent = r.nuevos;
+      } catch (_) { /* nada */ }
+      return;
+    }
+    if (!puede.admin()) return;
+    try { cambiosMios = await api('GET', '/api/cambios'); } catch (_) { return; }
+    // Usados los 3 del mes, la opción desaparece hasta el mes que viene.
+    $('menuCambios').hidden = cambiosMios.quedan === 0;
+    $('cambiosQuedan').textContent = `${cambiosMios.quedan} de ${cambiosMios.limite}`;
+  }
+  function pintarCambiosForm() {
+    const c = cambiosMios;
+    $('cambiosQuedanTxt').innerHTML = c.quedan === 1 ? 'Este mes te queda <b>1 cambio</b>.' : `Este mes te quedan <b>${c.quedan} cambios</b>.`;
+    $('misCambios').innerHTML = c.cambios.length ? `
+      <h3 class="subtitulo">Tus pedidos de este mes</h3>
+      <ul class="cambios">${c.cambios.map((x) => `
+        <li class="cambio cambio--${x.estado}">
+          <p>${escapar(x.texto)}</p>
+          <small>${fechaCorta(x.fecha)} · <b>${ESTADO_CAMBIO[x.estado] || x.estado}</b></small>
+        </li>`).join('')}</ul>` : '';
+  }
+  $('menuCambios').addEventListener('click', async () => {
+    await pintarCambiosMenu();
+    if (!cambiosMios) return;
+    $('formCambios').reset();
+    mostrarError($('errorCambios'), null);
+    pintarCambiosForm();
+    $('dlgCambios').showModal();
+  });
+  $('formCambios').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const boton = e.target.querySelector('[type="submit"]');
+    boton.disabled = true;
+    try {
+      const { quedan } = await api('POST', '/api/cambios', { texto: e.target.texto.value });
+      $('dlgCambios').close();
+      avisar(quedan ? `¡Listo! Martín ya recibió tu pedido 💛 (te quedan ${quedan} este mes)` : '¡Listo! Martín ya recibió tu pedido 💛 Ya usaste los 3 de este mes.');
+      pintarCambiosMenu();
+    } catch (err) { mostrarError($('errorCambios'), err); } finally { boton.disabled = false; }
+  });
+
+  async function pintarCambiosSugeridos() {
+    const { cambios } = await api('GET', '/api/cambios');
+    const nombreMes = (m) => new Date(m + '-15T12:00:00').toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+    let mes = '';
+    $('listaCambios').innerHTML = cambios.map((x) => {
+      const titulo = x.mes !== mes ? `<li class="cambios__mes">${nombreMes(x.mes)}</li>` : '';
+      mes = x.mes;
+      return `${titulo}
+        <li class="cambio cambio--${x.estado}">
+          <div class="cambio__top"><b>${escapar(x.quien)}</b><small>${new Date(x.fecha).toLocaleString('es-AR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small></div>
+          <p>${escapar(x.texto)}</p>
+          <div class="cambio__acciones">
+            <span class="cambio__estado">${ESTADO_CAMBIO[x.estado] || x.estado}</span>
+            ${x.estado !== 'visto' && x.estado !== 'hecho' ? `<button type="button" class="mini" data-cambio="${x.id}" data-estado="visto">👀 Visto</button>` : ''}
+            ${x.estado !== 'hecho' ? `<button type="button" class="mini" data-cambio="${x.id}" data-estado="hecho">✅ Hecho</button>` : `<button type="button" class="mini" data-cambio="${x.id}" data-estado="visto">Deshacer</button>`}
+            <button type="button" class="mini mini--borrar" data-cambio-borrar="${x.id}" aria-label="Borrar este pedido">✕</button>
+          </div>
+        </li>`;
+    }).join('') || '<li class="vacio">Todavía no te pidieron cambios. 👌</li>';
+  }
+  $('menuCambiosSugeridos').addEventListener('click', async () => {
+    try { await pintarCambiosSugeridos(); $('dlgCambiosSugeridos').showModal(); } catch (err) { avisar(err.message); }
+  });
+  $('listaCambios').addEventListener('click', async (e) => {
+    const est = e.target.closest('[data-estado]');
+    const borrar = e.target.closest('[data-cambio-borrar]');
+    try {
+      if (est) await api('PATCH', `/api/cambios/${est.dataset.cambio}`, { estado: est.dataset.estado });
+      else if (borrar) {
+        if (!confirm('¿Borrar este pedido? (No le devuelve el cupo del mes.)')) return;
+        await api('DELETE', `/api/cambios/${borrar.dataset.cambioBorrar}`);
+      } else return;
+      await pintarCambiosSugeridos();
+      pintarCambiosMenu();
+      pintarAvisos();
+    } catch (err) { avisar(err.message); }
+  });
+  // Al abrir uno desde la campanita.
+  $('listaAvisos').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-aviso-cambios]')) return;
+    $('dlgAvisos').close();
+    $('menuCambiosSugeridos').click();
+  });
+
   // ---------- 📲 el panel como app ----------
   let pedidoInstalar = null;
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInstalar = e; $('instalarApp').hidden = false; });
@@ -470,6 +566,7 @@
     let hay = 0;
     $('guia').querySelectorAll('.guia__tema').forEach((t) => {
       if (t.dataset.perm && !t.dataset.perm.split('|').some(puede.hacer)) return;
+      if (t.dataset.solo && !puede[t.dataset.solo]()) return;
       const ok = !q || sinTildes(t.textContent).includes(q);
       t.style.display = ok ? '' : 'none';
       t.open = !!q && ok;
@@ -503,6 +600,7 @@
           <p>${escapar(a.texto)}</p>
           ${a.descargar ? `<button type="button" class="btn btn--bordo" data-aviso-excel="${i}">⬇️ Bajar en Excel</button>` : ''}
           ${a.producto ? `<button type="button" class="btn btn--bordo" data-aviso-producto="${a.producto}">Ver producto</button>` : ''}
+          ${a.cambios ? '<button type="button" class="btn btn--bordo" data-aviso-cambios>Ver cambios</button>' : ''}
         </div>
       </li>`).join('') || '<li class="vacio">No tenés avisos. 👌</li>';
   }

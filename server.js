@@ -325,6 +325,17 @@ async function initDb() {
   if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'created_at')) {
     await db.execute('ALTER TABLE products ADD COLUMN created_at INTEGER');
   }
+  // Cambios que las administradoras le piden a Pixel Cuyo (hasta 3 por mes entre todas).
+  await db.execute(`CREATE TABLE IF NOT EXISTS change_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    who TEXT NOT NULL,
+    text TEXT NOT NULL,
+    month TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'nuevo',
+    updated_at INTEGER
+  )`);
   // "Avisame cuando vuelva": clientas que dejaron su WhatsApp en un producto sin stock.
   await db.execute(`CREATE TABLE IF NOT EXISTS stock_alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -493,6 +504,9 @@ function tooManyHits(ip, kind, max) {
   return h.length > max;
 }
 const STAT_KINDS = ['vista', 'agregado', 'whatsapp', 'compartir', 'pedido'];
+const CAMBIOS_POR_MES = 3;
+const mesAR = (ms = Date.now()) => diaAR(ms).slice(0, 7); // 2026-10
+const cambioPublico = (c) => ({ id: c.id, quien: c.who, texto: c.text, mes: c.month, fecha: c.created_at, estado: c.status, actualizado: c.updated_at });
 
 async function getSettings() {
   return {
@@ -934,6 +948,45 @@ async function handleApi(req, res, url) {
     return send(res, 200, c);
   }
 
+  // ----- cambios en la web (las administradoras piden, Pixel Cuyo lee) -----
+  if (route === 'GET /api/cambios') {
+    if (can.super(user)) {
+      const r = await db.execute('SELECT * FROM change_requests ORDER BY created_at DESC LIMIT 300');
+      return send(res, 200, { cambios: r.rows.map(cambioPublico), nuevos: r.rows.filter((c) => c.status === 'nuevo').length });
+    }
+    requireRole(user.role === 'admin', 'Solo las administradoras pueden pedir cambios');
+    const r = await db.execute({ sql: 'SELECT * FROM change_requests WHERE month = ? ORDER BY created_at', args: [mesAR()] });
+    return send(res, 200, { cambios: r.rows.map(cambioPublico), limite: CAMBIOS_POR_MES, quedan: Math.max(0, CAMBIOS_POR_MES - r.rows.length) });
+  }
+  if (route === 'POST /api/cambios') {
+    requireRole(user.role === 'admin', 'Solo las administradoras pueden pedir cambios');
+    const texto = cleanDescription((await readJson(req)).texto).slice(0, 2000);
+    if (texto.length < 5) throw new HttpError(400, 'Contanos un poquito más qué cambio querés');
+    const usados = Number((await db.execute({ sql: 'SELECT COUNT(*) AS n FROM change_requests WHERE month = ?', args: [mesAR()] })).rows[0].n);
+    if (usados >= CAMBIOS_POR_MES) throw new HttpError(409, `Ya usaste los ${CAMBIOS_POR_MES} cambios de este mes. El mes que viene tenés ${CAMBIOS_POR_MES} más.`);
+    await db.execute({
+      sql: 'INSERT INTO change_requests (user_id, who, text, month, created_at) VALUES (?, ?, ?, ?, ?)',
+      args: [user.id, whoName(user), texto, mesAR(), Date.now()],
+    });
+    return send(res, 201, { ok: true, quedan: CAMBIOS_POR_MES - usados - 1 });
+  }
+  const cambioId = url.pathname.match(/^\/api\/cambios\/(\d+)$/);
+  if (cambioId) {
+    requireRole(can.super(user), 'Solo Pixel Cuyo');
+    const id = Number(cambioId[1]);
+    if (req.method === 'PATCH') {
+      const estado = String((await readJson(req)).estado || '');
+      if (!['nuevo', 'visto', 'hecho'].includes(estado)) throw new HttpError(400, 'Estado inválido');
+      await db.execute({ sql: 'UPDATE change_requests SET status = ?, updated_at = ? WHERE id = ?', args: [estado, Date.now(), id] });
+      return send(res, 200, { ok: true });
+    }
+    if (req.method === 'DELETE') {
+      await db.execute({ sql: 'DELETE FROM change_requests WHERE id = ?', args: [id] });
+      return send(res, 200, { ok: true });
+    }
+    throw new HttpError(405, 'Método no permitido');
+  }
+
   if (route === 'GET /api/textos') return send(res, 200, await getTextos());
   if (route === 'PUT /api/textos') {
     requireRole(can.do(user, 'settings'), 'No tenés permiso para cambiar los textos de la web');
@@ -1237,7 +1290,7 @@ async function handleApi(req, res, url) {
   // Novedades del panel (novedades.js): cada uno ve las de lo que puede hacer.
   if (route === 'GET /api/novedades') {
     const visto = Number((await getUser(user.id)).news_seen) || 0;
-    const items = NOVEDADES.filter((n) => !n.perm || n.perm.split('|').some((k) => can.do(user, k)));
+    const items = NOVEDADES.filter((n) => (!n.perm || n.perm.split('|').some((k) => can.do(user, k))) && (!n.rol || n.rol === user.role || can.super(user)));
     return send(res, 200, { items, visto });
   }
   if (route === 'POST /api/novedades/visto') {
@@ -1280,6 +1333,8 @@ async function handleApi(req, res, url) {
       }
     }
     if (user.role === 'super') {
+      const nuevos = Number((await db.execute("SELECT COUNT(*) AS n FROM change_requests WHERE status = 'nuevo'")).rows[0].n);
+      if (nuevos) avisos.push({ id: 'cambios', icono: '📬', titulo: `${nuevos} ${nuevos === 1 ? 'cambio sugerido nuevo' : 'cambios sugeridos nuevos'}`, texto: 'Valentina te pidió cambios en la web. Los ves en ⋯ Más → 📬 Cambios sugeridos.', cambios: true });
       const ultima = lastBackup();
       if (Date.now() - ultima > 2 * 864e5) {
         avisos.push({ id: 'backup', icono: '💾', titulo: 'La copia de seguridad diaria no se hizo', texto: ultima ? `La última es del ${fechaAR(ultima)}. Revisá el servidor.` : 'Todavía no hay ninguna copia diaria. Revisá el servidor.' });

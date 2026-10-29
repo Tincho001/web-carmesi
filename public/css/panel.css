@@ -544,3 +544,18 @@ button { cursor: pointer; }
 .cuota__datos small { font-size: 13px; }
 .cuota__datos [hidden] { display: none; }
 .cuota__viejo { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fbf1dd; color: #6b4a12; font-size: 12.5px; }
+
+/* ---------- Cambios en la web ---------- */
+.fila__nota { margin-left: 6px; font-style: normal; font-size: 11.5px; color: var(--gris); }
+.cambios__sub { margin: 4px 0 0; padding: 10px 12px; border-radius: 12px; background: #fbf1dd; color: #6b4a12; font-size: 13.5px; line-height: 1.5; }
+.cambios { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.cambio { padding: 12px; border: 1px solid var(--linea); border-radius: 12px; background: #fff; }
+.cambio p { margin: 6px 0; font-size: 14px; line-height: 1.5; white-space: pre-line; color: var(--tinta); }
+.cambio small { font-size: 12px; color: var(--gris); }
+.cambio--nuevo { border-color: #e6c9a8; background: #fffaf2; }
+.cambio--hecho { opacity: .7; }
+.cambio__top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; font-size: 13px; }
+.cambio__acciones { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cambio__estado { margin-right: auto; font-size: 12px; font-weight: 600; color: var(--bordo); }
+.cambios__mes { margin-top: 6px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gris); }
+#misCambios .subtitulo { margin: 18px 0 0; font-size: 18px; }
