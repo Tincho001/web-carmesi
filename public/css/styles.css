@@ -340,3 +340,32 @@ a.tarjeta__foto { display: block; }
   .producto .detalle__info { justify-content: center; padding: 32px; }
 }
 .compartir { margin-top: 4px; padding: 10px; border: 0; background: none; color: var(--bordo); font: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* ---------- Nuevo ---------- */
+.tarjeta__nuevo { position: absolute; top: 10px; right: 10px; padding: 4px 10px; border-radius: 99px; background: var(--crema); color: var(--bordo); font-size: 11px; font-weight: 600; letter-spacing: .04em; box-shadow: 0 1px 4px rgba(0, 0, 0, .12); }
+.chip-nuevo { align-self: flex-start; padding: 3px 10px; border-radius: 99px; background: rgba(94, 26, 34, .08); color: var(--bordo); font-size: 12px; font-weight: 600; }
+.chip-nuevo[hidden] { display: none; }
+
+/* ---------- Avisame cuando vuelva ---------- */
+.avisame { background: var(--crema); color: var(--tinta); border: 0; border-radius: var(--radio); padding: 20px; width: min(92vw, 420px); }
+.avisame form, .avisame__listo { display: grid; gap: 12px; }
+.avisame h3 { margin: 0; font-family: var(--serif); font-size: 24px; font-weight: 500; }
+.avisame label { display: grid; gap: 5px; font-size: 13px; font-weight: 500; }
+.avisame label small { font-weight: 400; color: var(--gris); }
+.avisame input { padding: 12px; border: 1px solid rgba(43, 26, 28, .2); border-radius: 10px; font: inherit; font-size: 16px; background: #fff; }
+.avisame__prod { margin: 0; font-size: 14px; color: var(--gris); }
+.avisame__error { margin: 0; color: #a3242e; font-size: 13px; }
+.avisame__nota { margin: 0; font-size: 11.5px; color: var(--gris); text-align: center; }
+.avisame__listo { text-align: center; }
+.avisame__check { margin: 0; font-size: 40px; }
+
+/* ---------- Preguntas frecuentes ---------- */
+.preguntas { max-width: 720px; margin: 0 auto; padding: 8px 16px 48px; }
+.pregunta { border-bottom: 1px solid rgba(246, 239, 230, .2); }
+.pregunta summary { display: flex; align-items: center; gap: 12px; padding: 16px 2px; font-weight: 600; font-size: 15px; cursor: pointer; list-style: none; }
+.pregunta summary::-webkit-details-marker { display: none; }
+.pregunta summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; opacity: .7; }
+.pregunta[open] summary::after { content: "−"; }
+.pregunta p { margin: 0 2px 16px; font-size: 14px; line-height: 1.65; opacity: .9; white-space: pre-line; }
+.avisame__cabeza { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.avisame [hidden] { display: none; }

@@ -71,6 +71,8 @@
       <p>Elegís lo que te gusta desde la web y nos mandás el pedido por WhatsApp. Coordinamos la entrega o el envío en <strong>Capital, Godoy Cruz, Guaymallén, Las Heras, Maipú y Luján de Cuyo</strong>.</p>
     </section>
 
+    <!--PREGUNTAS-->
+
     <section class="como">
       <h2 class="etiqueta">¿Cómo comprar?</h2>
       <ol>
@@ -109,13 +111,37 @@
     </div>
     <div class="detalle__info">
       <p class="detalle__cat" id="detalleCat"></p>
+      <span class="chip-nuevo" id="detalleNuevo" hidden>✨ Nuevo</span>
       <h3 id="detalleNombre"></h3>
       <p class="detalle__color" id="detalleColor"></p>
       <p class="detalle__precio" id="detallePrecio"></p>
       <p class="detalle__desc" id="detalleDesc" hidden></p>
       <button class="boton boton--bordo" type="button" id="detalleAgregar">Agregar al pedido</button>
+      <button class="boton boton--bordo" type="button" id="detalleAvisame" hidden>🔔 Avisame cuando vuelva</button>
       <a class="boton boton--borde-bordo" id="detalleConsultar" target="_blank" rel="noopener">Consultar por WhatsApp</a>
       <button class="compartir" type="button" id="detalleCompartir">🔗 Compartir este producto</button>
+    </div>
+  </dialog>
+
+  <!-- Avisame cuando vuelva -->
+  <dialog class="avisame" id="avisame">
+    <form id="formAvisame">
+      <div class="avisame__cabeza">
+        <h3>🔔 Avisame cuando vuelva</h3>
+        <button class="cerrar" type="button" data-cerrar aria-label="Cerrar">×</button>
+      </div>
+      <p class="avisame__prod" id="avisameProd"></p>
+      <label>Tu nombre <small>(opcional)</small><input name="nombre" maxlength="40" autocomplete="given-name"></label>
+      <label>Tu WhatsApp<input name="telefono" inputmode="tel" autocomplete="tel" required placeholder="261 555 1234"></label>
+      <p class="avisame__error" id="avisameError" hidden></p>
+      <button class="boton boton--bordo" type="submit">Avisame</button>
+      <p class="avisame__nota">Solo lo usamos para avisarte de este producto.</p>
+    </form>
+    <div class="avisame__listo" id="avisameListo" hidden>
+      <p class="avisame__check">💛</p>
+      <h3>¡Listo!</h3>
+      <p>Te escribimos por WhatsApp apenas vuelva a estar disponible.</p>
+      <button class="boton boton--bordo" type="button" data-cerrar>Seguir mirando</button>
     </div>
   </dialog>
 

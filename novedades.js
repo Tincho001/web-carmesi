@@ -67,4 +67,53 @@ Los links funcionan cuando se abra la web.`,
     texto: `- En **⋯ Más → 🕑 Historial** ves todos los cambios en un almanaque y los podés **bajar en Excel**.
 - Se guardan los **últimos 6 meses**. 10 días antes de que se borre algo, te avisa la **🔔 campanita** para que lo bajes si lo querés guardar.`,
   },
+  {
+    id: 7,
+    fecha: '2026-10-29',
+    icono: '🛍️',
+    titulo: '"Avisame cuando vuelva": clientas que esperan stock',
+    perm: 'products_edit',
+    texto: `Cuando un producto está **sin stock**, en la web aparece el botón **🔔 Avisame cuando vuelva**. La clienta deja su WhatsApp.
+- En el panel, ese producto muestra **🔔** con cuántas clientas esperan.
+- Cuando vuelva a entrar: abrí el producto, apagá **Sin stock** y tocá **💬 Avisar** en cada clienta. Se abre su WhatsApp con el mensaje y el link ya escritos.
+- La **campanita** te recuerda si te quedó alguna sin avisar.`,
+  },
+  {
+    id: 8,
+    fecha: '2026-10-29',
+    icono: '✨',
+    titulo: 'Etiqueta "Nuevo" automática',
+    perm: 'products_edit',
+    texto: `Los productos que cargás llevan la etiqueta **Nuevo** en la web durante sus **primeros 15 días**. No tenés que hacer nada: aparece y se va sola.
+En la tienda también hay un botón **✨ Nuevos** para ver solo esos.`,
+  },
+  {
+    id: 9,
+    fecha: '2026-10-29',
+    icono: '📊',
+    titulo: 'Lo más visto por las clientas',
+    perm: 'activity',
+    texto: `En **⋯ Más → 📊 Lo más visto** ves qué productos miran más las clientas, cuáles agregan al pedido y cuáles consultan por WhatsApp.
+- Podés ver los últimos 7 días, 30 días o 3 meses.
+- Te sirve para saber **qué reponer** y qué mostrar en Instagram.
+- Lo que mirás vos con el panel abierto no cuenta.`,
+  },
+  {
+    id: 10,
+    fecha: '2026-10-29',
+    icono: '❓',
+    titulo: 'Preguntas frecuentes en la web',
+    perm: 'settings',
+    texto: `Abajo de los productos ahora hay **preguntas frecuentes** (envíos, pagos…), así las clientas encuentran la respuesta sin escribirte.
+Dejé unas de ejemplo: **revisalas y cambialas** en **⋯ Más → ❓ Preguntas frecuentes**, sobre todo lo de envíos y formas de pago.`,
+  },
+  {
+    id: 11,
+    fecha: '2026-10-29',
+    icono: '💾',
+    titulo: 'Tus datos, resguardados todos los días',
+    perm: '',
+    texto: `Todas las noches se guarda una **copia de seguridad** de la tienda: productos, precios, fotos y usuarios.
+Si alguna vez se borra algo por error, avisale a Martín y se puede recuperar.`,
+  },
 ];

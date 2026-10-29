@@ -15,6 +15,10 @@ const PORT = Number(process.env.PORT || 3200);
 const HOST = process.env.HOST || '127.0.0.1';
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, 'data'));
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+// Copias de seguridad: al lado de los datos (en el servidor, /var/www/carmesi-backups).
+const BACKUP_DIR = path.resolve(process.env.BACKUP_DIR || path.join(path.dirname(DATA_DIR), 'carmesi-backups'));
+const BACKUP_KEEP_DAYS = 14;
+const NUEVO_DIAS = 15; // un producto lleva la etiqueta "Nuevo" sus primeros 15 días
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const SITE_URL = (process.env.SITE_URL || 'https://carmesibags.com.ar').replace(/\/+$/, '');
 const SEED_DIR = path.join(__dirname, 'seed');
@@ -313,6 +317,27 @@ async function initDb() {
   if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'old_price')) {
     await db.execute('ALTER TABLE products ADD COLUMN old_price INTEGER');
   }
+  // Cuándo se cargó cada producto (para la etiqueta "Nuevo"). Los que ya estaban quedan sin fecha.
+  if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'created_at')) {
+    await db.execute('ALTER TABLE products ADD COLUMN created_at INTEGER');
+  }
+  // "Avisame cuando vuelva": clientas que dejaron su WhatsApp en un producto sin stock.
+  await db.execute(`CREATE TABLE IF NOT EXISTS stock_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    notified_at INTEGER
+  )`);
+  // Qué miran las clientas: un contador por producto, día y tipo (vista, agregado, whatsapp, compartir, pedido).
+  await db.execute(`CREATE TABLE IF NOT EXISTS product_stats (
+    product_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    n INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (product_id, day, kind)
+  )`);
   // Fotos extra de cada producto (otros ángulos): lista de archivos en JSON, hasta 3.
   if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'gallery')) {
     await db.execute("ALTER TABLE products ADD COLUMN gallery TEXT NOT NULL DEFAULT '[]'");
@@ -400,6 +425,43 @@ async function setMeta(key, value) {
 // Mientras no se lance, la web arranca "en construcción" (solo Pixel Cuyo la abre desde el panel).
 const inMaintenance = async () => (await getMeta('maintenance')) !== '0';
 
+// Preguntas frecuentes de la tienda: las edita la dueña desde el panel.
+const DEFAULT_FAQ = [
+  { q: '¿Cómo hago un pedido?', a: 'Elegí los productos que te gustan, tocá "Agregar al pedido" y después "Enviar pedido por WhatsApp". Te respondemos para coordinar todo.' },
+  { q: '¿Hacen envíos?', a: 'Sí, coordinamos la entrega o el envío en Gran Mendoza: Capital, Godoy Cruz, Guaymallén, Las Heras, Maipú y Luján de Cuyo. Escribinos y te pasamos el costo.' },
+  { q: '¿Cómo puedo pagar?', a: 'El pago lo coordinamos por WhatsApp. Escribinos y te contamos las opciones.' },
+  { q: '¿Qué pasa si un producto no tiene stock?', a: 'Tocá "Avisame cuando vuelva", dejá tu WhatsApp y te escribimos apenas entre de nuevo.' },
+];
+async function getFaq() {
+  try {
+    const saved = JSON.parse((await getMeta('faq')) || 'null');
+    if (Array.isArray(saved)) return saved;
+  } catch { /* se usa la de fábrica */ }
+  return DEFAULT_FAQ;
+}
+
+// Teléfono argentino a formato de WhatsApp: "261 555-1234" → 5492615551234.
+function normalizePhone(value) {
+  let d = String(value || '').replace(/\D/g, '').replace(/^0+/, '');
+  if (d.startsWith('54') && !d.startsWith('549') && d.length === 12) d = '549' + d.slice(2);
+  if (d.length === 10) d = '549' + d;
+  if (!d || d.length < 11 || d.length > 15) throw new HttpError(400, 'Revisá el número: poné el WhatsApp con la característica, ej: 261 555 1234');
+  return d;
+}
+
+// Límite simple por IP para lo que las clientas mandan sin cuenta.
+const publicHits = new Map();
+function tooManyHits(ip, kind, max) {
+  const key = kind + ':' + ip;
+  const now = Date.now();
+  const h = (publicHits.get(key) || []).filter((t) => now - t < 3600e3);
+  h.push(now);
+  publicHits.set(key, h);
+  if (publicHits.size > 5000) publicHits.clear();
+  return h.length > max;
+}
+const STAT_KINDS = ['vista', 'agregado', 'whatsapp', 'compartir', 'pedido'];
+
 async function getSettings() {
   return {
     whatsapp: (await getMeta('whatsapp')) || DEFAULT_SETTINGS.whatsapp,
@@ -428,7 +490,7 @@ const PERMISSIONS = [
   { key: 'products_edit', label: 'Cargar y editar productos y stock' },
   { key: 'products_delete', label: 'Borrar productos' },
   { key: 'categories', label: 'Crear, ordenar y borrar categorías' },
-  { key: 'settings', label: 'Cambiar WhatsApp e Instagram' },
+  { key: 'settings', label: 'Cambiar WhatsApp, Instagram y preguntas frecuentes' },
   { key: 'activity', label: 'Ver el historial de cambios' },
   { key: 'users', label: 'Crear vendedores y cambiarles la contraseña' },
   { key: 'admins', label: 'Crear subadministradores y cambiarles la contraseña' },
@@ -483,10 +545,46 @@ const ACTIVITY_DAYS = 183;
 const ACTIVITY_WARN_DAYS = 10; // aviso en la campanita antes de que se borre
 const ZONA = 'America/Argentina/Mendoza';
 const fechaAR = (ms) => new Date(ms).toLocaleDateString('es-AR', { timeZone: ZONA, day: '2-digit', month: '2-digit', year: 'numeric' });
+const diaAR = (ms) => new Date(ms).toLocaleDateString('en-CA', { timeZone: ZONA }); // 2026-10-29
 const horaAR = (ms) => new Date(ms).toLocaleTimeString('es-AR', { timeZone: ZONA, hour: '2-digit', minute: '2-digit' });
 async function trimActivity() {
   const r = await db.execute({ sql: 'DELETE FROM activity WHERE at < ?', args: [Date.now() - ACTIVITY_DAYS * 864e5] });
   if (r.rowsAffected) console.log(`Historial: ${r.rowsAffected} cambios de hace más de 6 meses borrados`);
+  const limite = Date.now() - ACTIVITY_DAYS * 864e5;
+  await db.execute({ sql: 'DELETE FROM stock_alerts WHERE created_at < ?', args: [limite] });
+  await db.execute({ sql: 'DELETE FROM product_stats WHERE day < ?', args: [diaAR(limite)] });
+}
+
+// ---------- copia de seguridad diaria ----------
+// Todos los días (desde las 4 de la mañana) se guarda una copia de la base; quedan las últimas 14.
+// Las fotos se copian a BACKUP_DIR/fotos (cada foto tiene nombre único, así que solo se suman las nuevas).
+async function dailyBackup() {
+  const hoy = diaAR(Date.now()).replace(/-/g, '');
+  const hora = Number(new Date().toLocaleString('en-US', { timeZone: ZONA, hour: 'numeric', hour12: false }));
+  fs.mkdirSync(path.join(BACKUP_DIR, 'fotos'), { recursive: true });
+  const archivo = path.join(BACKUP_DIR, `diaria-${hoy}.db`);
+  // Si todavía no hay ninguna, se hace en el momento.
+  if ((hora >= 4 || !lastBackup()) && !fs.existsSync(archivo)) {
+    await db.execute({ sql: 'VACUUM INTO ?', args: [archivo] });
+    console.log('Copia de seguridad:', archivo);
+  }
+  const corte = Date.now() - BACKUP_KEEP_DAYS * 864e5;
+  for (const f of fs.readdirSync(BACKUP_DIR)) {
+    if (/^diaria-\d{8}\.db$/.test(f) && fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs < corte) fs.unlinkSync(path.join(BACKUP_DIR, f));
+  }
+  if (fs.existsSync(UPLOADS_DIR)) {
+    for (const f of fs.readdirSync(UPLOADS_DIR)) {
+      const destino = path.join(BACKUP_DIR, 'fotos', f);
+      if (!fs.existsSync(destino)) fs.copyFileSync(path.join(UPLOADS_DIR, f), destino);
+    }
+  }
+}
+
+function lastBackup() {
+  try {
+    const f = fs.readdirSync(BACKUP_DIR).filter((x) => /^diaria-\d{8}\.db$/.test(x)).sort().pop();
+    return f ? fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs : 0;
+  } catch { return 0; }
 }
 
 // Cupos de perfiles: los primeros son gratis; los siguientes, pago único (lo habilita Pixel Cuyo).
@@ -565,7 +663,7 @@ function adminProduct(p) {
     id: p.id, name: p.name, color: p.color, description: p.description || '', categoryId: p.category_id, price: p.price, oldPrice: p.old_price || null,
     photo: photoUrl(p.photo), thumb: photoUrl(p.thumb || p.photo),
     gallery: galleryOf(p).map(photoUrl),
-    soldOut: !!p.sold_out, hidden: !!p.hidden, position: p.position,
+    soldOut: !!p.sold_out, hidden: !!p.hidden, position: p.position, createdAt: p.created_at || null,
     updatedBy: p.updated_by, updatedAt: p.updated_at,
   };
 }
@@ -585,7 +683,9 @@ async function publicCatalog() {
       foto: photoUrl(p.photo), miniatura: photoUrl(p.thumb || p.photo), agotado: !!p.sold_out,
       fotos: [p.photo, ...galleryOf(p)].filter(Boolean).map(photoUrl),
       url: '/producto/' + slugs.get(String(p.id)),
+      nuevo: !!p.created_at && p.created_at > Date.now() - NUEVO_DIAS * 864e5,
     })),
+    preguntas: await getFaq(),
   };
 }
 
@@ -653,6 +753,35 @@ async function handleApi(req, res, url) {
     const preview = url.searchParams.get('vista') === '1';
     if (!preview && (await inMaintenance()) && !(await currentUser(req))) throw new HttpError(503, 'Sitio en construcción');
     return send(res, 200, await publicCatalog(), { 'Cache-Control': 'no-cache' });
+  }
+
+  // "Avisame cuando vuelva": la clienta deja su WhatsApp en un producto sin stock.
+  if (route === 'POST /api/avisame') {
+    if (tooManyHits(ip, 'avisame', 10)) throw new HttpError(429, 'Probá de nuevo en un rato');
+    const body = await readJson(req);
+    const p = (await db.execute({ sql: 'SELECT id, sold_out, hidden FROM products WHERE id = ?', args: [Number(body.productId) || 0] })).rows[0];
+    if (!p || p.hidden) throw new HttpError(404, 'Ese producto ya no está');
+    const phone = normalizePhone(body.telefono);
+    const name = cleanText(body.nombre, 40);
+    const ya = (await db.execute({ sql: 'SELECT id FROM stock_alerts WHERE product_id = ? AND phone = ? AND notified_at IS NULL', args: [p.id, phone] })).rows[0];
+    if (!ya) await db.execute({ sql: 'INSERT INTO stock_alerts (product_id, name, phone, created_at) VALUES (?, ?, ?, ?)', args: [p.id, name, phone, Date.now()] });
+    return send(res, 200, { ok: true });
+  }
+
+  // Qué miran las clientas. No se cuenta lo que hace el equipo con sesión iniciada.
+  if (route === 'POST /api/evento') {
+    const body = await readJson(req).catch(() => ({}));
+    const kind = String(body.tipo || '');
+    const id = Number(body.productId) || 0;
+    if (!STAT_KINDS.includes(kind) || !id || tooManyHits(ip, 'evento', 400) || (await currentUser(req))) return send(res, 200, { ok: true });
+    const existe = (await db.execute({ sql: 'SELECT 1 FROM products WHERE id = ?', args: [id] })).rows[0];
+    if (existe) {
+      await db.execute({
+        sql: 'INSERT INTO product_stats (product_id, day, kind, n) VALUES (?, ?, ?, 1) ON CONFLICT (product_id, day, kind) DO UPDATE SET n = n + 1',
+        args: [id, diaAR(Date.now()), kind],
+      });
+    }
+    return send(res, 200, { ok: true });
   }
 
   if (route === 'POST /api/login') {
@@ -723,6 +852,61 @@ async function handleApi(req, res, url) {
   }
 
   // ----- datos del negocio (WhatsApp e Instagram) -----
+  if (route === 'GET /api/faq') return send(res, 200, { preguntas: await getFaq() });
+  if (route === 'PUT /api/faq') {
+    requireRole(can.do(user, 'settings'), 'No tenés permiso para cambiar las preguntas frecuentes');
+    const body = await readJson(req);
+    const lista = (Array.isArray(body.preguntas) ? body.preguntas : [])
+      .map((x) => ({ q: cleanText(x.q, 120), a: cleanDescription(x.a).slice(0, 600) }))
+      .filter((x) => x.q && x.a)
+      .slice(0, 15);
+    const antes = await getFaq();
+    await setMeta('faq', JSON.stringify(lista));
+    const changes = [];
+    lista.filter((x) => !antes.some((y) => y.q === x.q)).forEach((x) => changes.push(`pregunta nueva: "${x.q}"`));
+    antes.filter((x) => !lista.some((y) => y.q === x.q)).forEach((x) => changes.push(`pregunta borrada: "${x.q}"`));
+    lista.filter((x) => antes.some((y) => y.q === x.q && y.a !== x.a)).forEach((x) => changes.push(`respuesta cambiada: "${x.q}"`));
+    if (changes.length || lista.length !== antes.length) await logActivity('site', null, 'preguntas frecuentes', user, 'update', changes);
+    return send(res, 200, { preguntas: lista });
+  }
+
+  // Estadísticas: lo más visto, agregado y consultado en los últimos días.
+  if (route === 'GET /api/stats') {
+    requireRole(can.do(user, 'activity'), 'No tenés permiso para ver las estadísticas');
+    const dias = Math.min(183, Math.max(1, Number(url.searchParams.get('dias')) || 30));
+    const desde = diaAR(Date.now() - (dias - 1) * 864e5);
+    const r = await db.execute({ sql: 'SELECT product_id, kind, SUM(n) AS n FROM product_stats WHERE day >= ? GROUP BY product_id, kind', args: [desde] });
+    const por = new Map();
+    for (const row of r.rows) {
+      const k = String(row.product_id);
+      if (!por.has(k)) por.set(k, { productId: Number(row.product_id), vista: 0, agregado: 0, whatsapp: 0, compartir: 0, pedido: 0 });
+      por.get(k)[row.kind] = Number(row.n);
+    }
+    return send(res, 200, { dias, desde, productos: [...por.values()].sort((a, b) => b.vista - a.vista || b.agregado - a.agregado) });
+  }
+
+  // Clientas que esperan que vuelva un producto.
+  if (route === 'GET /api/avisame') {
+    requireRole(can.do(user, 'products_edit'));
+    const r = await db.execute('SELECT * FROM stock_alerts ORDER BY created_at');
+    const slugs = await productSlugs();
+    return send(res, 200, {
+      avisos: r.rows.map((a) => ({
+        id: a.id, productId: a.product_id, nombre: a.name, telefono: a.phone, createdAt: a.created_at, notifiedAt: a.notified_at,
+        url: `${SITE_URL}/producto/${slugs.get(String(a.product_id))}`,
+      })),
+    });
+  }
+  const alerta = url.pathname.match(/^\/api\/avisame\/(\d+)$/);
+  if (alerta) {
+    requireRole(can.do(user, 'products_edit'));
+    const id = Number(alerta[1]);
+    if (req.method === 'POST') await db.execute({ sql: 'UPDATE stock_alerts SET notified_at = ? WHERE id = ?', args: [Date.now(), id] });
+    else if (req.method === 'DELETE') await db.execute({ sql: 'DELETE FROM stock_alerts WHERE id = ?', args: [id] });
+    else throw new HttpError(405, 'Método no permitido');
+    return send(res, 200, { ok: true });
+  }
+
   if (route === 'GET /api/settings') {
     requireRole(can.do(user, 'settings'));
     return send(res, 200, await getSettings());
@@ -817,9 +1001,9 @@ async function handleApi(req, res, url) {
     // Los nuevos aparecen primeros dentro de su categoría.
     const pos = Number((await db.execute({ sql: 'SELECT COALESCE(MIN(position), 1) - 1 AS n FROM products WHERE category_id = ?', args: [p.categoryId] })).rows[0].n);
     const r = await db.execute({
-      sql: `INSERT INTO products (name, color, description, category_id, price, old_price, photo, thumb, gallery, sold_out, hidden, position, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-      args: [p.name, p.color, p.description, p.categoryId, p.price, p.oldPrice, photo, thumb, JSON.stringify(gallery), p.soldOut, p.hidden, pos, user.username, Date.now()],
+      sql: `INSERT INTO products (name, color, description, category_id, price, old_price, photo, thumb, gallery, sold_out, hidden, position, updated_by, updated_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      args: [p.name, p.color, p.description, p.categoryId, p.price, p.oldPrice, photo, thumb, JSON.stringify(gallery), p.soldOut, p.hidden, pos, user.username, Date.now(), Date.now()],
     });
     await logActivity('product', r.rows[0].id, productLabel(r.rows[0]), user, 'create');
     return send(res, 201, { product: adminProduct(r.rows[0]) });
@@ -889,6 +1073,8 @@ async function handleApi(req, res, url) {
     if (req.method === 'DELETE') {
       requireRole(can.do(user, 'products_delete'), 'No tenés permiso para borrar productos');
       await db.execute({ sql: 'DELETE FROM products WHERE id = ?', args: [id] });
+      await db.execute({ sql: 'DELETE FROM stock_alerts WHERE product_id = ?', args: [id] });
+      await db.execute({ sql: 'DELETE FROM product_stats WHERE product_id = ?', args: [id] });
       await logActivity('product', id, productLabel(existing), user, 'delete');
       removeUpload(existing.photo);
       removeUpload(existing.thumb);
@@ -964,6 +1150,26 @@ async function handleApi(req, res, url) {
           texto: `El historial guarda 6 meses. Lo del ${fechaAR(Number(viejo))} se borra el ${fechaAR(borra)}. Si lo querés guardar, bajalo en Excel antes.`,
           descargar: { from: 0, to: limite },
         });
+      }
+    }
+    if (can.do(user, 'products_edit')) {
+      // Clientas esperando un producto que ya volvió a tener stock.
+      const r = await db.execute(`SELECT p.id, p.name, p.color, COUNT(*) AS n FROM stock_alerts a JOIN products p ON p.id = a.product_id
+        WHERE a.notified_at IS NULL AND p.sold_out = 0 AND p.hidden = 0 GROUP BY p.id ORDER BY MIN(a.created_at)`);
+      for (const p of r.rows) {
+        avisos.push({
+          id: 'stock-' + p.id,
+          icono: '🛍️',
+          titulo: `${p.n} ${Number(p.n) === 1 ? 'clienta espera' : 'clientas esperan'} la ${p.name}${p.color ? ' ' + p.color : ''}`,
+          texto: 'Ya tiene stock de nuevo: abrí el producto y avisales por WhatsApp con un toque.',
+          producto: Number(p.id),
+        });
+      }
+    }
+    if (user.role === 'super') {
+      const ultima = lastBackup();
+      if (Date.now() - ultima > 2 * 864e5) {
+        avisos.push({ id: 'backup', icono: '💾', titulo: 'La copia de seguridad diaria no se hizo', texto: ultima ? `La última es del ${fechaAR(ultima)}. Revisá el servidor.` : 'Todavía no hay ninguna copia diaria. Revisá el servidor.' });
       }
     }
     return send(res, 200, { avisos });
@@ -1187,14 +1393,33 @@ function productoLd(p, nombreCat) {
 function tarjetasHtml(productos) {
   return productos.map((p) => {
     const nom = escHtml([p.nombre, p.color].filter(Boolean).join(' '));
-    return `<article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}"><a class="tarjeta__foto" href="${escHtml(p.url)}"><img src="${escHtml(p.miniatura)}" alt="${nom} — Carmesí Bags Mendoza" loading="lazy" width="720" height="900"></a><h3 class="tarjeta__nombre">${escHtml(p.nombre)}</h3><p class="tarjeta__color">${escHtml(p.color)}</p><p class="tarjeta__precio">${p.precioAnterior ? `<s>${plataAR(p.precioAnterior)}</s> ` : ''}${plataAR(p.precio)}</p></article>`;
+    return `<article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}"><a class="tarjeta__foto" href="${escHtml(p.url)}">${p.nuevo ? '<span class="tarjeta__nuevo">Nuevo</span>' : ''}<img src="${escHtml(p.miniatura)}" alt="${nom} — Carmesí Bags Mendoza" loading="lazy" width="720" height="900"></a><h3 class="tarjeta__nombre">${escHtml(p.nombre)}</h3><p class="tarjeta__color">${escHtml(p.color)}</p><p class="tarjeta__precio">${p.precioAnterior ? `<s>${plataAR(p.precioAnterior)}</s> ` : ''}${plataAR(p.precio)}</p></article>`;
   }).join('');
+}
+
+// Preguntas frecuentes: van en el HTML (y en los datos para Google).
+function preguntasHtml(preguntas) {
+  if (!preguntas.length) return '';
+  return `<section class="preguntas" id="preguntas">
+      <h2 class="etiqueta">Preguntas frecuentes</h2>
+      ${preguntas.map((x) => `<details class="pregunta"><summary>${escHtml(x.q)}</summary><p>${escHtml(x.a)}</p></details>`).join('\n      ')}
+    </section>`;
+}
+function preguntasLd(preguntas) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: preguntas.map((x) => ({ '@type': 'Question', name: x.q, acceptedAnswer: { '@type': 'Answer', text: x.a } })),
+  };
 }
 
 async function renderTienda() {
   const html = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
   const { cat, tienda, lista, ld } = await datosTienda();
-  return html.replace('<!--SEO-->', ld(tienda) + '\n  ' + ld(lista)).replace('<!--GRILLA-->', tarjetasHtml(cat.productos));
+  return html
+    .replace('<!--SEO-->', ld(tienda) + '\n  ' + ld(lista) + (cat.preguntas.length ? '\n  ' + ld(preguntasLd(cat.preguntas)) : ''))
+    .replace('<!--GRILLA-->', tarjetasHtml(cat.productos))
+    .replace('<!--PREGUNTAS-->', preguntasHtml(cat.preguntas));
 }
 
 // Página propia de un producto: misma tienda, con el producto arriba y sus datos para Google.
@@ -1241,11 +1466,13 @@ async function renderProducto(slug) {
         </div>
         <div class="detalle__info">
           <p class="detalle__cat">${escHtml(nombreCat(p.categoria))}</p>
+          ${p.nuevo ? '<span class="chip-nuevo">✨ Nuevo</span>' : ''}
           <h1>${escHtml(p.nombre)}</h1>
           <p class="detalle__color">${escHtml(p.color)}</p>
           <p class="detalle__precio">${p.precioAnterior ? `<s class="precio-antes">${plataAR(p.precioAnterior)}</s> <span class="precio-oferta">${plataAR(p.precio)}</span> <span class="chip-oferta">-${Math.round((1 - p.precio / p.precioAnterior) * 100)}%</span>` : plataAR(p.precio)}</p>
           ${p.descripcion ? `<p class="detalle__desc">${escHtml(p.descripcion)}</p>` : ''}
           <button class="boton boton--bordo" type="button" id="prodAgregar"${p.agotado ? ' disabled' : ''}>${p.agotado ? 'Sin stock' : 'Agregar al pedido'}</button>
+          ${p.agotado ? '<button class="boton boton--bordo" type="button" id="prodAvisame">🔔 Avisame cuando vuelva</button>' : ''}
           <a class="boton boton--borde-bordo" id="prodConsultar" href="https://wa.me/${escHtml(cat.whatsapp)}" target="_blank" rel="noopener">Consultar por WhatsApp</a>
           <button class="compartir" type="button" id="prodCompartir">🔗 Compartir este producto</button>
         </div>
@@ -1258,7 +1485,8 @@ async function renderProducto(slug) {
     .replace(/<!--PORTADA-->[\s\S]*?<!--\/PORTADA-->/, '')
     .replace('<!--PRODUCTO-->', seccion)
     .replace('<!--SEO-->', ld(tienda) + '\n  ' + ld(productoLd(p, nombreCat)) + '\n  ' + ld(migas))
-    .replace('<!--GRILLA-->', tarjetasHtml(resto));
+    .replace('<!--GRILLA-->', tarjetasHtml(resto))
+    .replace('<!--PREGUNTAS-->', preguntasHtml(cat.preguntas));
 }
 
 async function sitemapXml() {
@@ -1342,6 +1570,10 @@ async function handle(req, res) {
 
 initDb().then(loadPerms).then(trimActivity).then(() => {
   setInterval(() => trimActivity().catch((e) => console.error(e)), 12 * 3600e3);
+  // La copia diaria se revisa cada hora (y al arrancar).
+  const backup = () => dailyBackup().catch((e) => console.error('Copia de seguridad:', e));
+  backup();
+  setInterval(backup, 3600e3);
   http.createServer(handle).listen(PORT, HOST, () => {
     console.log(`Carmesí escuchando en http://${HOST}:${PORT} (datos en ${DATA_DIR})`);
   });

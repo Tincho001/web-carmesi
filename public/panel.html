@@ -79,7 +79,9 @@
         <button type="button" class="fila" id="menuNovedades"><span aria-hidden="true">🎉</span> Novedades <em class="fila__badge" id="novedadesN" hidden></em></button>
         <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
         <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
+        <button type="button" class="fila" id="menuStats" data-perm="activity"><span aria-hidden="true">📊</span> Lo más visto</button>
         <button type="button" class="fila" id="menuNegocio" data-perm="settings"><span aria-hidden="true">💬</span> WhatsApp e Instagram</button>
+        <button type="button" class="fila" id="menuFaq" data-perm="settings"><span aria-hidden="true">❓</span> Preguntas frecuentes</button>
         <button type="button" class="fila" id="menuNiveles" data-solo="super"><span aria-hidden="true">🔐</span> Niveles y permisos</button>
         <button type="button" class="fila" id="menuObra" data-solo="super"></button>
         <button type="button" class="fila" id="menuClave"><span aria-hidden="true">🔑</span> Cambiar mi contraseña</button>
@@ -322,6 +324,35 @@
   </dialog>
 
 
+  <dialog class="dlg dlg--hoja" id="dlgStats">
+    <div class="dlg__cabeza">
+      <h2>📊 Lo más visto</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <div class="chips chips--filtro" id="statsDias">
+      <button type="button" class="chip" data-dias="7">7 días</button>
+      <button type="button" class="chip" data-dias="30" aria-pressed="true">30 días</button>
+      <button type="button" class="chip" data-dias="90">3 meses</button>
+    </div>
+    <div class="stats-total" id="statsTotal"></div>
+    <ul class="stats" id="listaStats"></ul>
+    <p class="ayuda">👀 veces que abrieron el producto · 🛒 lo agregaron al pedido · 💬 consultaron por WhatsApp · 📤 estaba en un pedido enviado. No cuenta lo que se mira con el panel abierto.</p>
+  </dialog>
+
+  <dialog class="dlg dlg--hoja" id="dlgFaq">
+    <form id="formFaq">
+      <div class="dlg__cabeza">
+        <h2>❓ Preguntas frecuentes</h2>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+      </div>
+      <p class="ayuda">Aparecen en la web, abajo de los productos. Escribí lo que más te preguntan las clientas: envíos, pagos, cambios…</p>
+      <div class="faq" id="listaFaq"></div>
+      <button type="button" class="btn btn--borde btn--ancho" id="faqSumar">＋ Agregar pregunta</button>
+      <p class="error" id="errorFaq" hidden></p>
+      <div class="dlg__pie"><button type="submit" class="btn btn--bordo">Guardar</button></div>
+    </form>
+  </dialog>
+
   <dialog class="dlg dlg--hoja" id="dlgNovedades">
     <div class="dlg__cabeza">
       <h2 id="novedadesTitulo">🎉 Novedades</h2>
@@ -495,6 +526,43 @@
     </ul>
         </div>
       </details>
+      <details class="guia__tema" data-perm="products_edit">
+        <summary><span aria-hidden="true">🛍️</span>Clientas que esperan stock</summary>
+        <div class="guia__cuerpo">
+    <p>Si un producto está <b>sin stock</b>, en la web aparece <b>🔔 Avisame cuando vuelva</b> y la clienta deja su WhatsApp.</p>
+    <ol>
+      <li>En el panel, ese producto lleva <b>🔔</b> con el número de clientas que esperan.</li>
+      <li>Cuando vuelva a entrar, abrí el producto y apagá <b>Sin stock</b>.</li>
+      <li>Abajo aparece la lista: tocá <b>💬 Avisar</b> en cada una. Se abre su WhatsApp con el mensaje y el link listos; solo mandalo.</li>
+    </ol>
+    <p>Queda marcada como <b>Avisada ✓</b>. Con la <b>✕</b> la sacás de la lista.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="activity">
+        <summary><span aria-hidden="true">📊</span>Lo más visto</summary>
+        <div class="guia__cuerpo">
+    <p>En <b>⋯ Más → 📊 Lo más visto</b> ves, para cada producto:</p>
+    <ul>
+      <li><b>👀</b> cuántas veces lo abrieron,</li>
+      <li><b>🛒</b> cuántas lo agregaron al pedido,</li>
+      <li><b>💬</b> cuántas consultaron por WhatsApp,</li>
+      <li><b>📤</b> cuántas veces estaba en un pedido enviado.</li>
+    </ul>
+    <p>Elegí 7 días, 30 días o 3 meses. Lo que se mira con el panel abierto no cuenta.</p>
+    <p class="guia__tip">💡 Lo que más miran y poco piden puede necesitar mejor foto, descripción o una oferta.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="settings">
+        <summary><span aria-hidden="true">❓</span>Preguntas frecuentes de la web</summary>
+        <div class="guia__cuerpo">
+    <p>Aparecen en la web abajo de los productos, y ayudan a que Google entienda la tienda.</p>
+    <ol>
+      <li>Andá a <b>⋯ Más → ❓ Preguntas frecuentes</b>.</li>
+      <li>Cambiá el texto, tocá <b>＋ Agregar pregunta</b> o la <b>✕</b> para borrar una.</li>
+      <li>Tocá <b>Guardar</b>.</li>
+    </ol>
+        </div>
+      </details>
       <details class="guia__tema">
         <summary><span aria-hidden="true">🔔</span>Avisos</summary>
         <div class="guia__cuerpo">
@@ -516,7 +584,8 @@
       <li>Toca la bolsita de arriba y <b>Enviar pedido por WhatsApp</b>.</li>
       <li>Te llega un WhatsApp con la lista de productos, colores y el total. Desde ahí coordinan pago y entrega.</li>
     </ol>
-    <p>Los productos <b>sin stock</b> no se pueden agregar; los <b>ocultos</b> no se ven.</p>
+    <p>Los productos <b>sin stock</b> no se pueden agregar, pero la clienta puede tocar <b>🔔 Avisame</b>. Los <b>ocultos</b> no se ven.</p>
+    <p>Los productos de los últimos 15 días llevan la etiqueta <b>Nuevo</b> solos.</p>
         </div>
       </details>
       <details class="guia__tema">

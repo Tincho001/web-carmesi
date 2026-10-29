@@ -27,7 +27,25 @@
   const enlace = (p) => p.url + (vista ? '?vista=1' : '');
   const consulta = (p) => `¡Hola Carmesí! Me interesa la ${p.nombre} (${p.color}) de ${plata(p.precio)}. ¿Está disponible?\n${location.origin}${p.url}`;
 
+  // Números para el panel (qué miran las clientas). En la vista previa no se cuenta nada.
+  function evento(tipo, id) {
+    if (vista || !id) return;
+    const datos = JSON.stringify({ tipo, productId: Number(id) });
+    try { if (navigator.sendBeacon && navigator.sendBeacon('/api/evento', datos)) return; } catch (_) { /* sigue */ }
+    fetch('/api/evento', { method: 'POST', body: datos, keepalive: true }).catch(() => {});
+  }
+  // Una vista por producto y por visita.
+  function vio(id) {
+    let vistos = [];
+    try { vistos = JSON.parse(sessionStorage.getItem('carmesi-vistos')) || []; } catch (_) { vistos = []; }
+    if (vistos.includes(id)) return;
+    vistos.push(id);
+    try { sessionStorage.setItem('carmesi-vistos', JSON.stringify(vistos)); } catch (_) { /* sin almacenamiento */ }
+    evento('vista', id);
+  }
+
   async function compartir(p) {
+    evento('compartir', p.id);
     const url = location.origin + p.url;
     const titulo = `${p.nombre} ${p.color} — ${plata(p.precio)} | Carmesí Bags`;
     if (navigator.share) {
@@ -62,7 +80,8 @@
   // ---------- Filtros ----------
   let filtro = 'todos';
   const filtros = $('filtros');
-  [{ id: 'todos', nombre: 'Todo' }, ...categorias].forEach((c) => {
+  const hayNuevos = productos.some((p) => p.nuevo);
+  [{ id: 'todos', nombre: 'Todo' }, ...(hayNuevos ? [{ id: 'nuevos', nombre: '✨ Nuevos' }] : []), ...categorias].forEach((c) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'filtro';
@@ -82,21 +101,22 @@
   // ---------- Grilla ----------
   const grilla = $('grilla');
   function pintarGrilla() {
-    const lista = filtro === 'todos' ? productos : productos.filter((p) => p.categoria === filtro);
+    const lista = filtro === 'todos' ? productos : filtro === 'nuevos' ? productos.filter((p) => p.nuevo) : productos.filter((p) => p.categoria === filtro);
     grilla.innerHTML = lista.map((p) => `
       <article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}">
         <a class="tarjeta__foto" href="${enlace(p)}" data-ver="${p.id}" aria-label="Ver ${escapar(p.nombre)} ${escapar(p.color)}">
           <img src="${p.miniatura}" alt="${escapar(p.nombre)} ${escapar(p.color)}" loading="lazy" width="720" height="900">
           ${p.agotado ? '<span class="tarjeta__agotado">Sin stock</span>' : ''}
           ${p.precioAnterior && !p.agotado ? `<span class="tarjeta__oferta">Oferta -${descuento(p)}%</span>` : ''}
+          ${p.nuevo ? '<span class="tarjeta__nuevo">Nuevo</span>' : ''}
           ${p.fotos && p.fotos.length > 1 ? `<span class="tarjeta__fotos">📷 ${p.fotos.length}</span>` : ''}
         </a>
         <h3 class="tarjeta__nombre">${escapar(p.nombre)}</h3>
         <p class="tarjeta__color">${escapar(p.color)}</p>
         <p class="tarjeta__precio">${precioHtml(p)}</p>
-        <button class="tarjeta__agregar" type="button" data-agregar="${p.id}"${p.agotado ? ' disabled' : ''}>
-          ${p.agotado ? 'Sin stock' : 'Agregar al pedido'}
-        </button>
+        ${p.agotado
+          ? `<button class="tarjeta__agregar" type="button" data-avisame="${p.id}">🔔 Avisame</button>`
+          : `<button class="tarjeta__agregar" type="button" data-agregar="${p.id}">Agregar al pedido</button>`}
       </article>`).join('');
     const vacio = lista.length === 0;
     $('vacio').hidden = !vacio;
@@ -110,6 +130,8 @@
     if (ver && !(e.ctrlKey || e.metaKey || e.shiftKey)) { e.preventDefault(); return abrirDetalle(ver.dataset.ver); }
     const agregar = e.target.closest('[data-agregar]');
     if (agregar) agregarAlPedido(agregar.dataset.agregar);
+    const av = e.target.closest('[data-avisame]');
+    if (av) abrirAvisame(porId(av.dataset.avisame));
   });
 
   // ---------- Detalle ----------
@@ -134,13 +156,49 @@
     $('detallePrecio').innerHTML = precioHtml(p) + (p.precioAnterior ? ` <span class="chip-oferta">-${descuento(p)}%</span>` : '');
     $('detalleDesc').textContent = p.descripcion || '';
     $('detalleDesc').hidden = !p.descripcion;
+    $('detalleNuevo').hidden = !p.nuevo;
     $('detalleAgregar').disabled = !!p.agotado;
     $('detalleAgregar').textContent = p.agotado ? 'Sin stock' : 'Agregar al pedido';
+    $('detalleAvisame').hidden = !p.agotado;
     $('detalleConsultar').href = urlWhatsapp(consulta(p));
     detalle.showModal();
+    vio(p.id);
   }
   carrusel($('detalleFotos'), $('detallePuntos'), $('fotoAnterior'), $('fotoSiguiente'));
   $('detalleCompartir').addEventListener('click', () => compartir(enDetalle));
+  $('detalleConsultar').addEventListener('click', () => evento('whatsapp', enDetalle.id));
+  $('detalleAvisame').addEventListener('click', () => { detalle.close(); abrirAvisame(enDetalle); });
+
+  // ---------- Avisame cuando vuelva ----------
+  let enAvisame = null;
+  function abrirAvisame(p) {
+    enAvisame = p;
+    $('avisameProd').textContent = `${p.nombre} ${p.color} no tiene stock ahora. Dejanos tu WhatsApp y te avisamos cuando vuelva.`;
+    $('formAvisame').hidden = false;
+    $('avisameListo').hidden = true;
+    $('avisameError').hidden = true;
+    $('avisame').showModal();
+  }
+  $('formAvisame').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const boton = f.querySelector('[type="submit"]');
+    boton.disabled = true;
+    try {
+      const r = await fetch('/api/avisame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: Number(enAvisame.id), nombre: f.nombre.value, telefono: f.telefono.value }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'No se pudo guardar. Probá de nuevo.');
+      f.hidden = true;
+      $('avisameListo').hidden = false;
+    } catch (err) {
+      $('avisameError').textContent = err.message;
+      $('avisameError').hidden = false;
+    } finally { boton.disabled = false; }
+  });
 
   $('detalleAgregar').addEventListener('click', () => {
     agregarAlPedido(enDetalle.id);
@@ -166,6 +224,7 @@
   }
 
   function agregarAlPedido(id) {
+    evento('agregado', id);
     pedido[id] = (pedido[id] || 0) + 1;
     guardar();
     pintarPedido();
@@ -224,6 +283,7 @@
     pintarPedido();
   });
   $('abrirPedido').addEventListener('click', () => $('pedido').showModal());
+  $('pedidoEnviar').addEventListener('click', () => Object.keys(pedido).forEach((id) => evento('pedido', id)));
 
   // ---------- Aviso ----------
   let temporizador;
@@ -243,6 +303,9 @@
     $('prodAgregar').addEventListener('click', () => agregarAlPedido(enPagina.id));
     $('prodConsultar').href = urlWhatsapp(consulta(enPagina));
     $('prodCompartir').addEventListener('click', () => compartir(enPagina));
+    $('prodConsultar').addEventListener('click', () => evento('whatsapp', enPagina.id));
+    if ($('prodAvisame')) $('prodAvisame').addEventListener('click', () => abrirAvisame(enPagina));
+    vio(enPagina.id);
     $('etiquetaProductos').textContent = 'Más productos';
   }
 

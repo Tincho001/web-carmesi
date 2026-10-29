@@ -97,10 +97,42 @@
   }
 
   async function cargar() {
-    const [c, p] = await Promise.all([api('GET', '/api/categories'), api('GET', '/api/products')]);
+    const [c, p, a] = await Promise.all([
+      api('GET', '/api/categories'),
+      api('GET', '/api/products'),
+      puede.hacer('products_edit') ? api('GET', '/api/avisame') : { avisos: [] },
+    ]);
     categorias = c.categories;
     productos = p.products;
+    esperando = a.avisos;
     pintarTodo();
+  }
+
+  // ---------- 🔔 clientas que esperan que vuelva un producto ----------
+  let esperando = [];
+  const pendientesDe = (id) => esperando.filter((a) => a.productId === id && !a.notifiedAt);
+  const telLindo = (t) => t.replace(/^549(\d{3})(\d{3})(\d+)$/, '$1 $2 $3');
+  function mensajeVolvio(a, p) {
+    const hola = a.nombre ? `¡Hola ${a.nombre}!` : '¡Hola!';
+    return `https://wa.me/${a.telefono}?text=${encodeURIComponent(`${hola} Te escribo de Carmesí Bags 😊 Volvió a entrar la ${p.name}${p.color ? ' ' + p.color : ''} que querías. ¿Te la reservo?\n${a.url}`)}`;
+  }
+  function esperandoHtml(p) {
+    const lista = esperando.filter((a) => a.productId === p.id);
+    if (!lista.length) return '';
+    const pend = lista.filter((a) => !a.notifiedAt);
+    return `
+      <div class="esperan">
+        <strong>🔔 ${pend.length ? `${pend.length} ${pend.length === 1 ? 'clienta espera' : 'clientas esperan'} que vuelva` : 'Clientas que avisaste'}</strong>
+        ${pend.length && p.soldOut ? '<p class="ayuda">Cuando vuelva a entrar, apagá "Sin stock" y avisales desde acá.</p>' : ''}
+        <ul>${lista.map((a) => `
+          <li class="${a.notifiedAt ? 'esperan--avisada' : ''}">
+            <span><b>${escapar(a.nombre || 'Sin nombre')}</b><small>${telLindo(a.telefono)} · ${new Date(a.createdAt).toLocaleDateString('es-AR')}</small></span>
+            ${a.notifiedAt
+              ? `<em>Avisada ✓</em><button type="button" class="mini mini--borrar" data-alerta-borrar="${a.id}" aria-label="Sacar de la lista">✕</button>`
+              : `<a class="mini mini--wa" href="${mensajeVolvio(a, p)}" target="_blank" rel="noopener" data-alerta-avisar="${a.id}">💬 Avisar</a>`}
+          </li>`).join('')}
+        </ul>
+      </div>`;
   }
 
   function pintarTodo() {
@@ -109,6 +141,68 @@
     pintarGrilla();
     pintarCategorias();
   }
+
+  // ---------- 📊 lo más visto ----------
+  async function pintarStats(dias) {
+    $('statsDias').querySelectorAll('[data-dias]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.dias === String(dias))));
+    $('listaStats').innerHTML = '<li class="vacio">Cargando…</li>';
+    try {
+      const s = await api('GET', `/api/stats?dias=${dias}`);
+      const suma = (k) => s.productos.reduce((t, x) => t + x[k], 0);
+      $('statsTotal').innerHTML = `
+        <span><b>${suma('vista')}</b>vistas</span><span><b>${suma('agregado')}</b>al pedido</span>
+        <span><b>${suma('whatsapp')}</b>consultas</span><span><b>${suma('pedido')}</b>en pedidos</span>`;
+      const filas = s.productos.map((x) => ({ x, p: productos.find((p) => p.id === x.productId) })).filter((f) => f.p).slice(0, 20);
+      $('listaStats').innerHTML = filas.map(({ x, p }, i) => `
+        <li>
+          <span class="stats__n">${i + 1}</span>
+          <img src="${p.thumb || ''}" alt="">
+          <span class="stats__info"><b>${escapar(p.name)}</b><small>${escapar(p.color)}</small>
+            <span class="stats__nums">👀 ${x.vista} · 🛒 ${x.agregado} · 💬 ${x.whatsapp} · 📤 ${x.pedido}</span></span>
+        </li>`).join('') || '<li class="vacio">Todavía no hay datos. Se empiezan a contar cuando las clientas visitan la web.</li>';
+    } catch (err) { $('listaStats').innerHTML = `<li class="vacio">${escapar(err.message)}</li>`; }
+  }
+  $('menuStats').addEventListener('click', () => { $('dlgStats').showModal(); pintarStats(30); });
+  $('statsDias').addEventListener('click', (e) => { const b = e.target.closest('[data-dias]'); if (b) pintarStats(Number(b.dataset.dias)); });
+
+  // ---------- ❓ preguntas frecuentes ----------
+  function filaFaq(x = { q: '', a: '' }) {
+    const d = document.createElement('div');
+    d.className = 'faq__item';
+    d.innerHTML = `
+      <div class="faq__top"><strong>Pregunta</strong><button type="button" class="mini mini--borrar" data-faq-borrar aria-label="Borrar esta pregunta">✕</button></div>
+      <input name="q" maxlength="120" placeholder="Ej: ¿Hacen envíos?" value="${escapar(x.q)}">
+      <textarea name="a" rows="3" maxlength="600" placeholder="La respuesta, como se la dirías a una clienta">${escapar(x.a)}</textarea>`;
+    return d;
+  }
+  $('menuFaq').addEventListener('click', async () => {
+    try {
+      const { preguntas } = await api('GET', '/api/faq');
+      $('listaFaq').replaceChildren(...preguntas.map(filaFaq));
+      mostrarError($('errorFaq'), null);
+      $('dlgFaq').showModal();
+    } catch (err) { avisar(err.message); }
+  });
+  $('faqSumar').addEventListener('click', () => {
+    const f = filaFaq();
+    $('listaFaq').appendChild(f);
+    f.querySelector('input').focus();
+  });
+  $('listaFaq').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-faq-borrar]');
+    if (b && confirm('¿Borrar esta pregunta?')) b.closest('.faq__item').remove();
+  });
+  $('formFaq').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const preguntas = [...$('listaFaq').querySelectorAll('.faq__item')].map((d) => ({ q: d.querySelector('[name="q"]').value.trim(), a: d.querySelector('[name="a"]').value.trim() }));
+    const incompleta = preguntas.find((x) => !x.q !== !x.a);
+    if (incompleta) return mostrarError($('errorFaq'), new Error('Hay una pregunta sin respuesta (o al revés). Completala o borrala.'));
+    try {
+      await api('PUT', '/api/faq', { preguntas: preguntas.filter((x) => x.q) });
+      $('dlgFaq').close();
+      avisar('Preguntas guardadas ✓');
+    } catch (err) { mostrarError($('errorFaq'), err); }
+  });
 
   // ---------- 🎉 novedades: al entrar aparece lo que todavía no leyó ----------
   let novedades = { items: [], visto: 0 };
@@ -216,6 +310,7 @@
           <strong>${escapar(a.titulo)}</strong>
           <p>${escapar(a.texto)}</p>
           ${a.descargar ? `<button type="button" class="btn btn--bordo" data-aviso-excel="${i}">⬇️ Bajar en Excel</button>` : ''}
+          ${a.producto ? `<button type="button" class="btn btn--bordo" data-aviso-producto="${a.producto}">Ver producto</button>` : ''}
         </div>
       </li>`).join('') || '<li class="vacio">No tenés avisos. 👌</li>';
   }
@@ -228,6 +323,8 @@
   });
 
   $('listaAvisos').addEventListener('click', (e) => {
+    const prod = e.target.closest('[data-aviso-producto]');
+    if (prod) { $('dlgAvisos').close(); return abrirFicha(Number(prod.dataset.avisoProducto)); }
     const b = e.target.closest('[data-aviso-excel]');
     if (!b) return;
     const a = avisos[Number(b.dataset.avisoExcel)];
@@ -275,6 +372,8 @@
       { n: ocultos, t: 'Ocultos', filtro: 'ocultos' },
       { n: categorias.length, t: 'Categorías', ir: 'categorias' },
     ];
+    const clientas = esperando.filter((a) => !a.notifiedAt).length;
+    if (clientas) cajas.splice(2, 0, { n: clientas, t: 'Clientas esperando stock', filtro: 'sinstock', alerta: true });
     $('numeros').innerHTML = cajas.map((c) => `
       <button type="button" class="numero${c.alerta ? ' numero--alerta' : ''}" ${c.filtro ? `data-filtrar="${c.filtro}"` : `data-ir-a="${c.ir}"`}>
         <strong>${c.n}</strong><span>${c.t}</span>
@@ -344,6 +443,7 @@
           ${p.soldOut ? '<em class="marca marca--stock">Sin stock</em>' : ''}
           ${p.hidden ? '<em class="marca marca--oculto">Oculto</em>' : ''}
           ${p.oldPrice ? `<em class="marca marca--oferta">-${descuento(p.price, p.oldPrice)}%</em>` : ''}
+          ${pendientesDe(p.id).length ? `<em class="marca marca--esperan">🔔 ${pendientesDe(p.id).length}</em>` : ''}
         </span>
         <strong>${escapar(p.name)}</strong>
         <span>${escapar(p.color)}${p.color ? ' · ' : ''}${p.oldPrice ? `<s>${plata(p.oldPrice)}</s> ` : ''}${plata(p.price)}</span>
@@ -391,6 +491,7 @@
           <button type="button" class="btn btn--bordo" data-accion="editar">✏️ Editar</button>
           <button type="button" class="btn btn--borde" data-accion="variante">🎨 Otro color</button>
         </div>
+        ${esperandoHtml(p)}
         ${p.hidden ? '' : '<button type="button" class="btn btn--borde btn--ancho" data-accion="link">🔗 Copiar link para compartir</button>'}
         <div class="ficha__orden">
           <span>Lugar en ${escapar(nombreCat(p.categoryId))}: ${i + 1} de ${deSuCat.length}</span>
@@ -408,6 +509,26 @@
     c.parentElement.querySelectorAll('.puntos span').forEach((p, k) => p.classList.toggle('on', k === i));
   }, true);
 
+  // Avisar a una clienta: se abre su WhatsApp con el mensaje listo y queda marcada como avisada.
+  $('fichaCuerpo').addEventListener('click', async (e) => {
+    const av = e.target.closest('[data-alerta-avisar]');
+    const borrar = e.target.closest('[data-alerta-borrar]');
+    const id = Number((av || borrar || {}).dataset?.alertaAvisar || (borrar && borrar.dataset.alertaBorrar));
+    if (!id) return;
+    try {
+      if (av) {
+        await api('POST', `/api/avisame/${id}`);
+        esperando.find((a) => a.id === id).notifiedAt = Date.now();
+      } else {
+        await api('DELETE', `/api/avisame/${id}`);
+        esperando = esperando.filter((a) => a.id !== id);
+      }
+      pintarFicha();
+      pintarTodo();
+      pintarAvisos();
+    } catch (err) { avisar(err.message); }
+  });
+
   $('fichaCuerpo').addEventListener('change', async (e) => {
     const sw = e.target.closest('[data-sw]');
     if (!sw) return;
@@ -416,8 +537,10 @@
       const { product } = await api('PATCH', `/api/products/${enFicha.id}`, { [sw.dataset.sw]: sw.checked });
       Object.assign(enFicha, product);
       pintarTodo();
+      const esperan = pendientesDe(enFicha.id).length;
+      if (sw.dataset.sw === 'soldOut') pintarFicha();
       avisar(sw.dataset.sw === 'soldOut'
-        ? (product.soldOut ? 'Marcado sin stock' : 'Marcado con stock')
+        ? (product.soldOut ? 'Marcado sin stock' : esperan ? `Marcado con stock ✓ ${esperan === 1 ? 'Hay 1 clienta esperando' : `Hay ${esperan} clientas esperando`}: avisales acá abajo 👇` : 'Marcado con stock')
         : (product.hidden ? 'Oculto de la web' : 'Visible en la web'));
     } catch (err) {
       sw.checked = !sw.checked;
