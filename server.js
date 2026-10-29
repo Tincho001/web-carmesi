@@ -1196,6 +1196,14 @@ async function handleApi(req, res, url) {
     });
   }
 
+  // Borrar un cambio del historial: solo Pixel Cuyo. Desaparece para todos (inicio, historial y Excel).
+  const borrarCambio = url.pathname.match(/^\/api\/activity\/(\d+)$/);
+  if (borrarCambio && req.method === 'DELETE') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo puede borrar cambios del historial');
+    await db.execute({ sql: 'DELETE FROM activity WHERE id = ?', args: [Number(borrarCambio[1])] });
+    return send(res, 200, { ok: true });
+  }
+
   // Descargar el historial en Excel (mismo filtro que la pantalla: sin lo de Pixel Cuyo para el resto).
   if (route === 'GET /api/activity/export') {
     requireRole(can.do(user, 'activity'));

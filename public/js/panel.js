@@ -558,9 +558,32 @@
       $('listaUltimos').innerHTML = items.map((a) => `
         <li><strong>${escapar(a.who.replace(/ \(.*\)$/, ''))}</strong> ${ACCION[a.action] || a.action} ${escapar(a.name)}
           ${a.changes.length ? `<span>${escapar(a.changes.join(' · '))}</span>` : ''}
-          <time>${hace(a.at)}</time></li>`).join('') || '<li class="vacio">Todavía no hay cambios.</li>';
+          <time>${hace(a.at)}</time>${botonBorrarCambio(a)}</li>`).join('') || '<li class="vacio">Todavía no hay cambios.</li>';
     } catch (_) { /* si falla, no se muestra */ }
   }
+
+  // Solo Pixel Cuyo: una ✕ en cada cambio para borrarlo del historial de todos.
+  const botonBorrarCambio = (a) => (puede.super()
+    ? `<button type="button" class="cambio__borrar" data-borrar-cambio="${a.id}" aria-label="Borrar este cambio del historial" title="Borrar del historial">✕</button>`
+    : '');
+  async function borrarCambio(b) {
+    if (!confirm('¿Borrar este cambio del historial? Se borra para todos (inicio, historial y Excel) y no se puede deshacer.')) return;
+    try {
+      await api('DELETE', `/api/activity/${b.dataset.borrarCambio}`);
+      const li = b.closest('li');
+      li.style.transition = 'opacity .25s';
+      li.style.opacity = '0';
+      setTimeout(() => {
+        pintarUltimos();
+        if ($('dlgHistorial').open) { pintarDia(); pintarAlmanaque(); }
+      }, 250);
+      avisar('Cambio borrado del historial');
+    } catch (err) { avisar(err.message); }
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-borrar-cambio]');
+    if (b) borrarCambio(b);
+  });
 
   function hace(at) {
     const min = Math.round((Date.now() - at) / 60000);
@@ -1423,7 +1446,7 @@
       <li>
         <p><strong>${escapar(a.who)}</strong> ${ACCION[a.action] || a.action} ${TIPO[a.kind] ?? ''} <strong>${escapar(a.name)}</strong></p>
         ${a.changes.length ? `<ul>${a.changes.map((c) => `<li>${escapar(c)}</li>`).join('')}</ul>` : ''}
-        <time>${new Date(a.at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>
+        <time>${new Date(a.at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>${botonBorrarCambio(a)}
       </li>`).join('') || '<li class="vacio">Ese día no hubo cambios.</li>';
   }
 
