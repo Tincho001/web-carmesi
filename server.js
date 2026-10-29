@@ -35,7 +35,7 @@ const USERS = [
   { username: 'admin', role: 'super', alias: 'Pixel Cuyo', envPass: 'INIT_PASS_ADMIN' },
   { username: 'valentina', role: 'admin', alias: 'Valentina', envPass: 'INIT_PASS_VALENTINA' },
 ];
-const DEFAULT_SETTINGS = { whatsapp: '5492612554003', instagram: 'bags_carmesi' };
+const DEFAULT_SETTINGS = { whatsapp: '5492612554003', instagram: 'bags_carmesi', tiktok: 'bags_carmesi' };
 
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const SECRET = process.env.SESSION_SECRET || getOrCreateSecret();
@@ -466,6 +466,8 @@ async function getSettings() {
   return {
     whatsapp: (await getMeta('whatsapp')) || DEFAULT_SETTINGS.whatsapp,
     instagram: (await getMeta('instagram')) || DEFAULT_SETTINGS.instagram,
+    // TikTok: vacío en la base = el de fábrica; "-" = no mostrarlo.
+    tiktok: ((await getMeta('tiktok')) ?? DEFAULT_SETTINGS.tiktok).replace(/^-$/, ''),
   };
 }
 
@@ -490,7 +492,7 @@ const PERMISSIONS = [
   { key: 'products_edit', label: 'Cargar y editar productos y stock' },
   { key: 'products_delete', label: 'Borrar productos' },
   { key: 'categories', label: 'Crear, ordenar y borrar categorías' },
-  { key: 'settings', label: 'Cambiar WhatsApp, Instagram y preguntas frecuentes' },
+  { key: 'settings', label: 'Cambiar WhatsApp, Instagram, TikTok y preguntas frecuentes' },
   { key: 'activity', label: 'Ver el historial de cambios' },
   { key: 'users', label: 'Crear vendedores y cambiarles la contraseña' },
   { key: 'admins', label: 'Crear subadministradores y cambiarles la contraseña' },
@@ -918,12 +920,16 @@ async function handleApi(req, res, url) {
     if (whatsapp.length < 10 || whatsapp.length > 15) throw new HttpError(400, 'El WhatsApp tiene que ser el número completo, ej: 5492612554003');
     const instagram = String(body.instagram || '').trim().replace(/^@/, '');
     if (instagram && !/^[\w.]{1,30}$/.test(instagram)) throw new HttpError(400, 'Usuario de Instagram inválido');
+    const tiktok = String(body.tiktok ?? '').trim().replace(/^@/, '');
+    if (tiktok && !/^[\w.]{2,24}$/.test(tiktok)) throw new HttpError(400, 'Usuario de TikTok inválido');
     const before = await getSettings();
     await setMeta('whatsapp', whatsapp);
     await setMeta('instagram', instagram);
+    await setMeta('tiktok', tiktok || '-');
     const changes = [];
     if (before.whatsapp !== whatsapp) changes.push(`WhatsApp: ${before.whatsapp} → ${whatsapp}`);
     if (before.instagram !== instagram) changes.push(`Instagram: @${before.instagram} → @${instagram}`);
+    if (before.tiktok !== tiktok) changes.push(tiktok ? `TikTok: @${tiktok}` : 'TikTok quitado');
     if (changes.length) await logActivity('site', null, 'datos del negocio', user, 'update', changes);
     return send(res, 200, await getSettings());
   }
@@ -1349,7 +1355,10 @@ async function datosTienda() {
     currenciesAccepted: 'ARS',
     address: { '@type': 'PostalAddress', addressLocality: 'Mendoza', addressRegion: 'Mendoza', addressCountry: 'AR' },
     areaServed: ZONAS.map((name) => ({ '@type': 'City', name })),
-    sameAs: cat.instagram ? [`https://www.instagram.com/${cat.instagram}/`] : [],
+    sameAs: [
+      ...(cat.instagram ? [`https://www.instagram.com/${cat.instagram}/`] : []),
+      ...(cat.tiktok ? [`https://www.tiktok.com/@${cat.tiktok}`] : []),
+    ],
   };
   const lista = {
     '@context': 'https://schema.org',

@@ -12,7 +12,7 @@
     $('grilla').innerHTML = '<p class="error-carga">No pudimos cargar los productos. Probá recargar la página.</p>';
     return;
   }
-  const { productos, categorias, whatsapp, instagram } = datos;
+  const { productos, categorias, whatsapp, instagram, tiktok } = datos;
   const plata = (n) => '$' + n.toLocaleString('es-AR');
   const descuento = (p) => Math.round((1 - p.precio / p.precioAnterior) * 100);
   // Precio con el anterior tachado si está en oferta.
@@ -78,6 +78,10 @@
   $('igPie').href = `https://instagram.com/${instagram}`;
   // El usuario de Instagram y el WhatsApp salen de lo que está cargado en el panel.
   $('igPieTexto').textContent = '@' + instagram;
+  if (tiktok) {
+    $('ttPie').href = `https://www.tiktok.com/@${tiktok}`;
+    $('ttPieTexto').textContent = '@' + tiktok;
+  } else $('ttPie').parentElement.remove();
   $('waPieTexto').textContent = 'WhatsApp ' + String(whatsapp).replace(/^549/, '').replace(/^(\d{3})(\d{3})(\d+)$/, '$1 $2-$3');
 
   // ---------- Filtros ----------

@@ -116,4 +116,13 @@ Dejé unas de ejemplo: **revisalas y cambialas** en **⋯ Más → ❓ Preguntas
     texto: `Todas las noches se guarda una **copia de seguridad** de la tienda: productos, precios, fotos y usuarios.
 Si alguna vez se borra algo por error, avisale a Martín y se puede recuperar.`,
   },
+  {
+    id: 12,
+    fecha: '2026-10-29',
+    icono: '🎵',
+    titulo: 'TikTok en la web',
+    perm: '',
+    texto: `Abajo de la web ahora están los íconos de **WhatsApp, Instagram y TikTok** (@bags_carmesi), y también en la página de "en construcción".
+Si algún día cambia el usuario, se cambia en **⋯ Más → 💬 WhatsApp y redes**.`,
+  },
 ];

@@ -1042,6 +1042,7 @@
       const s = await api('GET', '/api/settings');
       $('formNegocio').whatsapp.value = s.whatsapp;
       $('formNegocio').instagram.value = s.instagram;
+      $('formNegocio').tiktok.value = s.tiktok;
       mostrarError($('errorNegocio'), null);
       $('dlgNegocio').showModal();
     } catch (err) { avisar(err.message); }
@@ -1050,7 +1051,7 @@
   $('formNegocio').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-      await api('PUT', '/api/settings', { whatsapp: e.target.whatsapp.value, instagram: e.target.instagram.value });
+      await api('PUT', '/api/settings', { whatsapp: e.target.whatsapp.value, instagram: e.target.instagram.value, tiktok: e.target.tiktok.value });
       $('dlgNegocio').close();
       avisar('Datos guardados ✓');
     } catch (err) { mostrarError($('errorNegocio'), err); }

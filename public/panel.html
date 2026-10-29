@@ -80,7 +80,7 @@
         <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
         <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
         <button type="button" class="fila" id="menuStats" data-perm="activity"><span aria-hidden="true">📊</span> Lo más visto</button>
-        <button type="button" class="fila" id="menuNegocio" data-perm="settings"><span aria-hidden="true">💬</span> WhatsApp e Instagram</button>
+        <button type="button" class="fila" id="menuNegocio" data-perm="settings"><span aria-hidden="true">💬</span> WhatsApp y redes</button>
         <button type="button" class="fila" id="menuFaq" data-perm="settings"><span aria-hidden="true">❓</span> Preguntas frecuentes</button>
         <button type="button" class="fila" id="menuNiveles" data-solo="super"><span aria-hidden="true">🔐</span> Niveles y permisos</button>
         <button type="button" class="fila" id="menuObra" data-solo="super"></button>
@@ -204,12 +204,14 @@
   <dialog class="dlg" id="dlgNegocio">
     <form id="formNegocio">
       <div class="dlg__cabeza">
-        <h2>WhatsApp e Instagram</h2>
+        <h2>WhatsApp y redes</h2>
         <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
       </div>
       <label>WhatsApp que recibe los pedidos <input name="whatsapp" inputmode="numeric" required placeholder="5492612554003"></label>
       <p class="ayuda">Con 549 adelante y sin el 15. Ej: 5492612554003.</p>
       <label>Instagram (sin @) <input name="instagram" autocapitalize="none" placeholder="bags_carmesi"></label>
+      <label>TikTok (sin @) <input name="tiktok" autocapitalize="none" placeholder="bags_carmesi"></label>
+      <p class="ayuda">Si lo dejás vacío, no aparece en la web.</p>
       <p class="error" id="errorNegocio" hidden></p>
       <div class="dlg__pie"><button type="submit" class="btn btn--bordo">Guardar</button></div>
     </form>
@@ -570,9 +572,9 @@
         </div>
       </details>
       <details class="guia__tema" data-perm="settings">
-        <summary><span aria-hidden="true">💬</span>WhatsApp e Instagram de la tienda</summary>
+        <summary><span aria-hidden="true">💬</span>WhatsApp y redes de la tienda</summary>
         <div class="guia__cuerpo">
-    <p>En <b>⋯ Más → 💬 WhatsApp e Instagram</b> cambiás el número que recibe los pedidos y el Instagram que aparece en la web.</p>
+    <p>En <b>⋯ Más → 💬 WhatsApp y redes</b> cambiás el número que recibe los pedidos y el Instagram y TikTok que aparecen en la web.</p>
     <p>El WhatsApp va con <b>549</b> adelante y sin el 15. Ej: 5492612554003.</p>
         </div>
       </details>
