@@ -167,6 +167,11 @@
       <label>Precio
         <span class="precio"><span>$</span><input id="aPrecio" inputmode="numeric" placeholder="22.000" autocomplete="off"></span>
       </label>
+      <label class="switch"><input type="checkbox" id="aOferta"><span></span> Está en oferta <small>se ve el precio anterior tachado</small></label>
+      <label id="ofertaCampo" hidden>Precio anterior <small class="opcional">(el de antes, más alto: se ve tachado)</small>
+        <span class="precio precio--antes"><span>$</span><input id="aPrecioAntes" inputmode="numeric" placeholder="28.000" autocomplete="off"></span>
+        <small class="ayuda" id="ofertaAyuda"></small>
+      </label>
       <label>Descripción <small class="opcional">(opcional)</small>
         <textarea id="aDesc" rows="4" maxlength="1000" placeholder="Ej: Medidas 30 x 22 cm. Cuero ecológico. Cierre metálico y bolsillo interno. Correa regulable."></textarea>
         <small class="contador" id="aDescN">0 / 1000</small>

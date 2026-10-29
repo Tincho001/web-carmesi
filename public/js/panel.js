@@ -1,6 +1,7 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   const plata = (n) => '$' + Number(n).toLocaleString('es-AR');
+  const descuento = (precio, antes) => Math.round((1 - precio / antes) * 100);
   const escapar = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   let yo = null;
@@ -249,9 +250,10 @@
           <img src="${p.thumb || ''}" alt="" loading="lazy">
           ${p.soldOut ? '<em class="marca marca--stock">Sin stock</em>' : ''}
           ${p.hidden ? '<em class="marca marca--oculto">Oculto</em>' : ''}
+          ${p.oldPrice ? `<em class="marca marca--oferta">-${descuento(p.price, p.oldPrice)}%</em>` : ''}
         </span>
         <strong>${escapar(p.name)}</strong>
-        <span>${escapar(p.color)}${p.color ? ' · ' : ''}${plata(p.price)}</span>
+        <span>${escapar(p.color)}${p.color ? ' · ' : ''}${p.oldPrice ? `<s>${plata(p.oldPrice)}</s> ` : ''}${plata(p.price)}</span>
       </button>`).join('') ||
       `<p class="vacio">${productos.length ? 'No hay productos acá.' : 'Todavía no hay productos. Tocá “＋ Agregar” para cargar el primero.'}</p>`;
   }
@@ -286,7 +288,7 @@
       </div>
       ${(p.gallery || []).length ? `<div class="puntos">${[p.photo, ...p.gallery].map((_, i) => `<span${i ? '' : ' class="on"'}></span>`).join('')}</div>` : ''}
       <p class="ficha__fotos">📷 ${1 + (p.gallery || []).length} de ${MAX_FOTOS} fotos${(p.gallery || []).length < MAX_FOTOS - 1 && edita ? ' · sumá más con ✏️ Editar' : ''}</p>
-      <p class="ficha__datos">${escapar(p.color)}${p.color ? ' · ' : ''}<strong>${plata(p.price)}</strong></p>
+      <p class="ficha__datos">${escapar(p.color)}${p.color ? ' · ' : ''}${p.oldPrice ? `<s>${plata(p.oldPrice)}</s> ` : ''}<strong>${plata(p.price)}</strong>${p.oldPrice ? ` <em class="oferta-chip">Oferta -${descuento(p.price, p.oldPrice)}%</em>` : ''}</p>
       <p class="ficha__cat">${escapar(nombreCat(p.categoryId))}</p>
       ${p.description ? `<p class="ficha__desc">${escapar(p.description)}</p>` : (edita ? '<p class="ficha__sin-desc">Sin descripción. Tocá ✏️ Editar para agregar medidas, material o detalles.</p>' : '')}
       ${edita ? `
@@ -376,6 +378,9 @@
     $('aDesc').value = base.description || '';
     contarDesc();
     $('aPrecio').value = base.price ? Number(base.price).toLocaleString('es-AR') : '';
+    $('aPrecioAntes').value = base.oldPrice ? Number(base.oldPrice).toLocaleString('es-AR') : '';
+    $('aOferta').checked = !!base.oldPrice;
+    pintarOferta();
     $('aSinStock').checked = modo === 'editar' ? base.soldOut : false;
     $('aOculto').checked = modo === 'editar' ? base.hidden : false;
     $('guardarOtro').hidden = modo === 'editar';
@@ -603,6 +608,27 @@
     $('aPrecio').value = n ? Number(n).toLocaleString('es-AR') : '';
   });
 
+  // Oferta: el precio anterior se ve tachado al lado del nuevo.
+  $('aPrecioAntes').addEventListener('input', () => {
+    const n = $('aPrecioAntes').value.replace(/\D/g, '').slice(0, 9);
+    $('aPrecioAntes').value = n ? Number(n).toLocaleString('es-AR') : '';
+    pintarOferta();
+  });
+  $('aPrecio').addEventListener('input', () => pintarOferta());
+  $('aOferta').addEventListener('change', () => {
+    pintarOferta();
+    if ($('aOferta').checked) $('aPrecioAntes').focus();
+  });
+  function pintarOferta() {
+    const on = $('aOferta').checked;
+    $('ofertaCampo').hidden = !on;
+    const precio = Number($('aPrecio').value.replace(/\D/g, ''));
+    const antes = Number($('aPrecioAntes').value.replace(/\D/g, ''));
+    $('ofertaAyuda').textContent = !on || !antes || !precio ? 'Ej: antes $28.000 y ahora $22.000. En la web se ve el de antes tachado.'
+      : antes <= precio ? '⚠️ Tiene que ser más alto que el precio de ahora'
+      : `En la web se va a ver: ${plata(antes)} tachado → ${plata(precio)} (-${descuento(precio, antes)}%)`;
+  }
+
   function datosAsistente() {
     return {
       name: $('aNombre').value.replace(/\s+/g, ' ').trim(),
@@ -610,6 +636,7 @@
       description: $('aDesc').value.trim(),
       categoryId: as.categoryId,
       price: $('aPrecio').value.replace(/\D/g, ''),
+      oldPrice: $('aOferta').checked ? $('aPrecioAntes').value.replace(/\D/g, '') : '',
       soldOut: $('aSinStock').checked,
       hidden: $('aOculto').checked,
       gallery: as.extras.slice(),
@@ -668,7 +695,9 @@
 
   $('paso2Seguir').addEventListener('click', () => {
     const d = datosAsistente();
-    const falta = !fotoDe() ? 'Falta la foto' : !d.name ? 'Poné el nombre' : !d.price ? 'Poné el precio' : null;
+    const falta = !fotoDe() ? 'Falta la foto' : !d.name ? 'Poné el nombre' : !d.price ? 'Poné el precio'
+      : $('aOferta').checked && !d.oldPrice ? 'Poné el precio anterior (o destildá "Está en oferta")'
+      : d.oldPrice && Number(d.oldPrice) <= Number(d.price) ? 'El precio anterior tiene que ser más alto que el de ahora' : null;
     mostrarError($('errorPaso2'), falta);
     if (!falta) paso(3);
   });
@@ -679,7 +708,7 @@
       <div class="vista__foto"><img src="${fotoDe()}" alt="">${d.soldOut ? '<em class="marca marca--stock">Sin stock</em>' : ''}${totalFotos() > 1 ? `<em class="marca marca--fotos">📷 ${totalFotos()}</em>` : ''}</div>
       <p class="vista__nombre">${escapar(d.name)}</p>
       <p class="vista__color">${escapar(d.color)}</p>
-      <p class="vista__precio">${plata(d.price)}</p>
+      <p class="vista__precio">${d.oldPrice ? `<s>${plata(d.oldPrice)}</s> ` : ''}${plata(d.price)}${d.oldPrice ? ` <em class="oferta-chip">-${descuento(d.price, d.oldPrice)}%</em>` : ''}</p>
       ${d.description ? `<p class="vista__desc"><span>Al tocarla, ven también:</span>${escapar(d.description)}</p>` : ''}
       <span class="vista__boton">${d.soldOut ? 'Sin stock' : 'Agregar al pedido'}</span>
       ${d.hidden ? '<p class="ayuda">Está marcado como oculto: no se va a ver en la web hasta que lo muestres.</p>' : ''}`;

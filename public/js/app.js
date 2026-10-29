@@ -12,6 +12,11 @@
   }
   const { productos, categorias, whatsapp, instagram } = datos;
   const plata = (n) => '$' + n.toLocaleString('es-AR');
+  const descuento = (p) => Math.round((1 - p.precio / p.precioAnterior) * 100);
+  // Precio con el anterior tachado si está en oferta.
+  const precioHtml = (p) => p.precioAnterior
+    ? `<s class="precio-antes">${plata(p.precioAnterior)}</s> <span class="precio-oferta">${plata(p.precio)}</span>`
+    : plata(p.precio);
   const escapar = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const urlWhatsapp = (texto) => `https://wa.me/${whatsapp}?text=${encodeURIComponent(texto)}`;
   const nombreCategoria = (id) => (categorias.find((c) => c.id === id) || {}).nombre || '';
@@ -53,11 +58,12 @@
         <button class="tarjeta__foto" type="button" data-ver="${p.id}" aria-label="Ver ${escapar(p.nombre)} ${escapar(p.color)}">
           <img src="${p.miniatura}" alt="${escapar(p.nombre)} ${escapar(p.color)}" loading="lazy" width="720" height="900">
           ${p.agotado ? '<span class="tarjeta__agotado">Sin stock</span>' : ''}
+          ${p.precioAnterior && !p.agotado ? `<span class="tarjeta__oferta">Oferta -${descuento(p)}%</span>` : ''}
           ${p.fotos && p.fotos.length > 1 ? `<span class="tarjeta__fotos">📷 ${p.fotos.length}</span>` : ''}
         </button>
         <h3 class="tarjeta__nombre">${escapar(p.nombre)}</h3>
         <p class="tarjeta__color">${escapar(p.color)}</p>
-        <p class="tarjeta__precio">${plata(p.precio)}</p>
+        <p class="tarjeta__precio">${precioHtml(p)}</p>
         <button class="tarjeta__agregar" type="button" data-agregar="${p.id}"${p.agotado ? ' disabled' : ''}>
           ${p.agotado ? 'Sin stock' : 'Agregar al pedido'}
         </button>
@@ -94,7 +100,7 @@
     $('detalleCat').textContent = nombreCategoria(p.categoria);
     $('detalleNombre').textContent = p.nombre;
     $('detalleColor').textContent = p.color;
-    $('detallePrecio').textContent = plata(p.precio);
+    $('detallePrecio').innerHTML = precioHtml(p) + (p.precioAnterior ? ` <span class="chip-oferta">-${descuento(p)}%</span>` : '');
     $('detalleDesc').textContent = p.descripcion || '';
     $('detalleDesc').hidden = !p.descripcion;
     $('detalleAgregar').disabled = !!p.agotado;

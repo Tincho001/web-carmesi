@@ -193,6 +193,14 @@ function parsePrice(value) {
   return n;
 }
 
+// Precio anterior (oferta): opcional; si se pone, tiene que ser más alto que el actual.
+function parseOldPrice(value, price) {
+  if (!String(value ?? '').replace(/[$s.,]/g, '')) return null;
+  const n = parsePrice(value);
+  if (n <= price) throw new HttpError(400, 'El precio anterior tiene que ser más alto que el precio actual');
+  return n;
+}
+
 const cleanText = (value, max) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 function cleanName(value, what) {
@@ -296,6 +304,10 @@ async function initDb() {
   // Descripción opcional de cada producto (medidas, material, detalles).
   if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'description')) {
     await db.execute("ALTER TABLE products ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+  }
+  // Precio anterior tachado (oferta): vacío = sin oferta.
+  if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'old_price')) {
+    await db.execute('ALTER TABLE products ADD COLUMN old_price INTEGER');
   }
   // Fotos extra de cada producto (otros ángulos): lista de archivos en JSON, hasta 3.
   if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'gallery')) {
@@ -508,6 +520,7 @@ async function describeProductChanges(before, after) {
   if (before.color !== after.color) out.push(`color: "${before.color}" → "${after.color}"`);
   if ((before.description || '') !== (after.description || '')) out.push(after.description ? 'descripción nueva' : 'descripción borrada');
   if (before.price !== after.price) out.push(`precio: ${plata(before.price)} → ${plata(after.price)}`);
+  if ((before.old_price || null) !== (after.old_price || null)) out.push(after.old_price ? `oferta: antes ${plata(after.old_price)}` : 'oferta quitada');
   if (before.category_id !== after.category_id) out.push(`categoría: ${await categoryName(before.category_id)} → ${await categoryName(after.category_id)}`);
   if (before.sold_out !== after.sold_out) out.push(after.sold_out ? 'marcado sin stock' : 'marcado con stock');
   if (before.hidden !== after.hidden) out.push(after.hidden ? 'oculto de la web' : 'visible en la web');
@@ -545,7 +558,7 @@ function saveGallery(list, before) {
 
 function adminProduct(p) {
   return {
-    id: p.id, name: p.name, color: p.color, description: p.description || '', categoryId: p.category_id, price: p.price,
+    id: p.id, name: p.name, color: p.color, description: p.description || '', categoryId: p.category_id, price: p.price, oldPrice: p.old_price || null,
     photo: photoUrl(p.photo), thumb: photoUrl(p.thumb || p.photo),
     gallery: galleryOf(p).map(photoUrl),
     soldOut: !!p.sold_out, hidden: !!p.hidden, position: p.position,
@@ -563,7 +576,7 @@ async function publicCatalog() {
     ...(await getSettings()),
     categorias: cats.map((c) => ({ id: String(c.id), nombre: c.name })),
     productos: prods.map((p) => ({
-      id: String(p.id), nombre: p.name, color: p.color, descripcion: p.description || '', categoria: String(p.category_id), precio: p.price,
+      id: String(p.id), nombre: p.name, color: p.color, descripcion: p.description || '', categoria: String(p.category_id), precio: p.price, precioAnterior: p.old_price || null,
       foto: photoUrl(p.photo), miniatura: photoUrl(p.thumb || p.photo), agotado: !!p.sold_out,
       fotos: [p.photo, ...galleryOf(p)].filter(Boolean).map(photoUrl),
     })),
@@ -582,13 +595,15 @@ function cleanDescription(value) {
 
 async function readProductBody(req) {
   const body = await readJson(req);
+  const price = parsePrice(body.price);
   return {
     body,
     name: cleanName(body.name, 'del producto'),
     color: cleanText(body.color, 60),
     description: cleanDescription(body.description),
     categoryId: await checkCategoryId(body.categoryId),
-    price: parsePrice(body.price),
+    price,
+    oldPrice: parseOldPrice(body.oldPrice, price),
     soldOut: body.soldOut ? 1 : 0,
     hidden: body.hidden ? 1 : 0,
   };
@@ -796,9 +811,9 @@ async function handleApi(req, res, url) {
     // Los nuevos aparecen primeros dentro de su categoría.
     const pos = Number((await db.execute({ sql: 'SELECT COALESCE(MIN(position), 1) - 1 AS n FROM products WHERE category_id = ?', args: [p.categoryId] })).rows[0].n);
     const r = await db.execute({
-      sql: `INSERT INTO products (name, color, description, category_id, price, photo, thumb, gallery, sold_out, hidden, position, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-      args: [p.name, p.color, p.description, p.categoryId, p.price, photo, thumb, JSON.stringify(gallery), p.soldOut, p.hidden, pos, user.username, Date.now()],
+      sql: `INSERT INTO products (name, color, description, category_id, price, old_price, photo, thumb, gallery, sold_out, hidden, position, updated_by, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      args: [p.name, p.color, p.description, p.categoryId, p.price, p.oldPrice, photo, thumb, JSON.stringify(gallery), p.soldOut, p.hidden, pos, user.username, Date.now()],
     });
     await logActivity('product', r.rows[0].id, productLabel(r.rows[0]), user, 'create');
     return send(res, 201, { product: adminProduct(r.rows[0]) });
@@ -846,9 +861,9 @@ async function handleApi(req, res, url) {
       const galleryBefore = galleryOf(existing);
       const gallery = saveGallery(p.body.gallery, galleryBefore);
       const r = await db.execute({
-        sql: `UPDATE products SET name = ?, color = ?, description = ?, category_id = ?, price = ?, photo = ?, thumb = ?, gallery = ?, sold_out = ?, hidden = ?, updated_by = ?, updated_at = ?
+        sql: `UPDATE products SET name = ?, color = ?, description = ?, category_id = ?, price = ?, old_price = ?, photo = ?, thumb = ?, gallery = ?, sold_out = ?, hidden = ?, updated_by = ?, updated_at = ?
               WHERE id = ? RETURNING *`,
-        args: [p.name, p.color, p.description, p.categoryId, p.price, photo, thumb, JSON.stringify(gallery), p.soldOut, p.hidden, user.username, Date.now(), id],
+        args: [p.name, p.color, p.description, p.categoryId, p.price, p.oldPrice, photo, thumb, JSON.stringify(gallery), p.soldOut, p.hidden, user.username, Date.now(), id],
       });
       if (photo !== existing.photo) { removeUpload(existing.photo); removeUpload(existing.thumb); }
       galleryBefore.filter((f) => !gallery.includes(f)).forEach(removeUpload);
