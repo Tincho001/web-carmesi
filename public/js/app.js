@@ -76,6 +76,9 @@
   $('waFlotante').href = urlWhatsapp(saludo);
   $('waPie').href = urlWhatsapp(saludo);
   $('igPie').href = `https://instagram.com/${instagram}`;
+  // El usuario de Instagram y el WhatsApp salen de lo que está cargado en el panel.
+  $('igPieTexto').textContent = '@' + instagram;
+  $('waPieTexto').textContent = 'WhatsApp ' + String(whatsapp).replace(/^549/, '').replace(/^(\d{3})(\d{3})(\d+)$/, '$1 $2-$3');
 
   // ---------- Filtros ----------
   let filtro = 'todos';

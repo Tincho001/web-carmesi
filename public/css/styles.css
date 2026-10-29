@@ -369,3 +369,10 @@ a.tarjeta__foto { display: block; }
 .pregunta p { margin: 0 2px 16px; font-size: 14px; line-height: 1.65; opacity: .9; white-space: pre-line; }
 .avisame__cabeza { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .avisame [hidden] { display: none; }
+
+/* ---------- Pie: íconos de WhatsApp e Instagram ---------- */
+.pie__contacto a { display: inline-flex; align-items: center; gap: 8px; }
+.pie__icono { width: 20px; height: 20px; flex: none; }
+.pie__icono--wa { fill: currentColor; }
+.pie__icono--ig { fill: none; stroke: currentColor; stroke-width: 1.8; }
+.pie__icono--ig .punto { fill: currentColor; stroke: none; }
