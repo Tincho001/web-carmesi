@@ -86,6 +86,11 @@
     document.querySelectorAll('[data-perm]').forEach((el) => { el.hidden = !el.dataset.perm.split('|').some(puede.hacer); });
     $('nuevaCat').hidden = !puede.hacer('categories');
     pintarObra(me.maintenance);
+    // Pixel Cuyo viendo como otra persona: franja arriba para volver.
+    $('comoBanda').hidden = !me.como;
+    document.body.classList.toggle('viendo-como', !!me.como);
+    if (me.como) $('comoNombre').textContent = `${me.como.alias} (${ROL_NOMBRE[me.como.role] || me.como.role})`;
+    $('salir').innerHTML = me.como ? '<span aria-hidden="true">↩️</span> Volver a mi panel' : '<span aria-hidden="true">🚪</span> Salir';
     // Martín (Pixel Cuyo) no necesita el botón para escribirse a sí mismo.
     const link = urlConsulta();
     $('consultarMartin').hidden = puede.super();
@@ -357,8 +362,11 @@
     }
   }
   async function pintarCambiosSugeridos() {
-    const { cambios } = await api('GET', '/api/cambios');
+    const { cambios, usados, limite } = await api('GET', '/api/cambios');
     cambiosSugeridos = cambios;
+    $('cupoMes').innerHTML = `
+      <span>Este mes usó <b>${usados} de ${limite}</b> cambios</span>
+      ${usados ? '<button type="button" class="mini" id="resetearCupo">🔄 Resetear cupo del mes</button>' : ''}`;
     $('copiarPendientes').hidden = cambios.filter((x) => x.estado !== 'hecho').length < 2;
     const nombreMes = (m) => new Date(m + '-15T12:00:00').toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
     let mes = '';
@@ -372,6 +380,7 @@
           <div class="cambio__acciones">
             <span class="cambio__estado">${ESTADO_CAMBIO[x.estado] || x.estado}</span>
             <button type="button" class="mini" data-cambio-copiar="${x.id}">📋 Copiar</button>
+            ${x.cuenta ? `<button type="button" class="mini" data-cambio-cupo="${x.id}" data-cuenta="0">↩️ Devolver cupo</button>` : `<span class="cambio__libre">Cupo devuelto</span>`}
             ${x.estado !== 'visto' && x.estado !== 'hecho' ? `<button type="button" class="mini" data-cambio="${x.id}" data-estado="visto">👀 Visto</button>` : ''}
             ${x.estado !== 'hecho' ? `<button type="button" class="mini" data-cambio="${x.id}" data-estado="hecho">✅ Hecho</button>` : `<button type="button" class="mini" data-cambio="${x.id}" data-estado="visto">Deshacer</button>`}
             <button type="button" class="mini mini--borrar" data-cambio-borrar="${x.id}" aria-label="Borrar este pedido">✕</button>
@@ -385,6 +394,15 @@
     const texto = pend.map((x, i) => `${i + 1}. ${x.texto}`).join('\n\n');
     if (!(await copiarTexto(texto))) return avisar('No se pudo copiar');
     avisar(`${pend.length} pedidos copiados ✓`);
+  });
+  $('cupoMes').addEventListener('click', async (e) => {
+    if (!e.target.closest('#resetearCupo')) return;
+    if (!confirm('¿Resetear el cupo de este mes? Los pedidos quedan en la lista, pero vuelve a tener los 3 cambios.')) return;
+    try {
+      await api('POST', '/api/cambios/resetear-mes');
+      await pintarCambiosSugeridos();
+      avisar('Cupo reseteado ✓ Vuelve a tener 3 cambios este mes');
+    } catch (err) { avisar(err.message); }
   });
   $('menuCambiosSugeridos').addEventListener('click', async () => {
     try { await pintarCambiosSugeridos(); $('dlgCambiosSugeridos').showModal(); } catch (err) { avisar(err.message); }
@@ -401,10 +419,12 @@
     }
     const est = e.target.closest('[data-estado]');
     const borrar = e.target.closest('[data-cambio-borrar]');
+    const cupo = e.target.closest('[data-cambio-cupo]');
     try {
-      if (est) await api('PATCH', `/api/cambios/${est.dataset.cambio}`, { estado: est.dataset.estado });
+      if (cupo) await api('PATCH', `/api/cambios/${cupo.dataset.cambioCupo}`, { cuenta: cupo.dataset.cuenta === '1' });
+      else if (est) await api('PATCH', `/api/cambios/${est.dataset.cambio}`, { estado: est.dataset.estado });
       else if (borrar) {
-        if (!confirm('¿Borrar este pedido? (No le devuelve el cupo del mes.)')) return;
+        if (!confirm('¿Borrar este pedido? Si era de este mes, se le devuelve el cupo.')) return;
         await api('DELETE', `/api/cambios/${borrar.dataset.cambioBorrar}`);
       } else return;
       await pintarCambiosSugeridos();
@@ -418,6 +438,37 @@
     $('dlgAvisos').close();
     $('menuCambiosSugeridos').click();
   });
+
+  // ---------- 👀 ver como (solo Pixel Cuyo) ----------
+  const ICONO_ROL = { admin: '👑', vendedor: '🛍️' };
+  $('verComo').addEventListener('click', async () => {
+    try {
+      const { users } = await api('GET', '/api/users');
+      const otros = users.filter((u) => u.role !== 'super');
+      $('listaComo').innerHTML = otros.map((u) => `
+        <li><button type="button" class="como-opcion" data-como="${u.id}">
+          <span aria-hidden="true">${ICONO_ROL[u.role] || '👤'}</span>
+          <span><b>${escapar(u.alias || u.username)}</b><small>${escapar(u.username)} · ${ROL_NOMBRE[u.role] || u.role}</small></span>
+        </button></li>`).join('') || '<li class="vacio">Todavía no hay otros usuarios.</li>';
+      if (!otros.some((u) => u.role === 'vendedor')) $('listaComo').insertAdjacentHTML('beforeend', '<li class="ayuda">Para ver como vendedor, primero creá un usuario vendedor en ⋯ Más → 👥 Usuarios.</li>');
+      $('dlgVerComo').showModal();
+    } catch (err) { avisar(err.message); }
+  });
+  $('listaComo').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-como]');
+    if (!b) return;
+    try {
+      await api('POST', '/api/como', { userId: Number(b.dataset.como) });
+      location.hash = '#inicio';
+      location.reload();
+    } catch (err) { avisar(err.message); }
+  });
+  async function volverDeComo() {
+    await api('POST', '/api/como/salir').catch(() => {});
+    location.hash = '#inicio';
+    location.reload();
+  }
+  $('comoSalir').addEventListener('click', volverDeComo);
 
   // ---------- 📲 el panel como app ----------
   let pedidoInstalar = null;
@@ -1379,6 +1430,7 @@
 
   // ---------- más ----------
   $('salir').addEventListener('click', async () => {
+    if (!$('comoBanda').hidden) return volverDeComo();
     await api('POST', '/api/logout').catch(() => {});
     history.replaceState(null, '', '#inicio');
     mostrarLogin();

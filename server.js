@@ -158,6 +158,15 @@ function sessionCookie(req, value, maxAgeSec) {
   return `cb_session=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${isHttps(req) ? '; Secure' : ''}`;
 }
 
+// "Ver como": Pixel Cuyo mira el panel como otro usuario sin cerrar su sesión.
+// Es una cookie aparte, firmada, que solo vale junto con la sesión de Pixel Cuyo que la creó (no sirve para entrar sola).
+const COMO_HORAS = 12;
+function comoCookie(req, target, superUser) {
+  if (!target) return `cb_como=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isHttps(req) ? '; Secure' : ''}`;
+  const payload = b64url(JSON.stringify({ como: target.id, by: superUser.id, exp: Date.now() + COMO_HORAS * 3600e3 }));
+  return `cb_como=${payload}.${sign(payload)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${COMO_HORAS * 3600}${isHttps(req) ? '; Secure' : ''}`;
+}
+
 function send(res, status, body, headers = {}) {
   const isJson = typeof body !== 'string' && !Buffer.isBuffer(body);
   res.writeHead(status, {
@@ -336,6 +345,10 @@ async function initDb() {
     status TEXT NOT NULL DEFAULT 'nuevo',
     updated_at INTEGER
   )`);
+  // Si el pedido cuenta para el cupo del mes (Pixel Cuyo puede devolverlo).
+  if (!(await db.execute('PRAGMA table_info(change_requests)')).rows.some((r) => r.name === 'counts')) {
+    await db.execute('ALTER TABLE change_requests ADD COLUMN counts INTEGER NOT NULL DEFAULT 1');
+  }
   // "Avisame cuando vuelva": clientas que dejaron su WhatsApp en un producto sin stock.
   await db.execute(`CREATE TABLE IF NOT EXISTS stock_alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -506,7 +519,8 @@ function tooManyHits(ip, kind, max) {
 const STAT_KINDS = ['vista', 'agregado', 'whatsapp', 'compartir', 'pedido'];
 const CAMBIOS_POR_MES = 3;
 const mesAR = (ms = Date.now()) => diaAR(ms).slice(0, 7); // 2026-10
-const cambioPublico = (c) => ({ id: c.id, quien: c.who, texto: c.text, mes: c.month, fecha: c.created_at, estado: c.status, actualizado: c.updated_at });
+const cambioPublico = (c) => ({ id: c.id, quien: c.who, texto: c.text, mes: c.month, fecha: c.created_at, estado: c.status, actualizado: c.updated_at, cuenta: !!c.counts });
+const cambiosUsados = async () => Number((await db.execute({ sql: 'SELECT COUNT(*) AS n FROM change_requests WHERE month = ? AND counts = 1', args: [mesAR()] })).rows[0].n);
 
 async function getSettings() {
   return {
@@ -523,14 +537,26 @@ async function getUser(id) {
 }
 
 async function currentUser(req) {
-  const data = readToken(parseCookies(req).cb_session);
-  if (!data) return null;
+  const cookies = parseCookies(req);
+  const data = readToken(cookies.cb_session);
+  if (!data || !data.uid) return null;
   const user = await getUser(data.uid);
-  return user && passVersion(user.pass_hash) === data.pv ? user : null;
+  if (!user || passVersion(user.pass_hash) !== data.pv) return null;
+  // Pixel Cuyo viendo como otro: se usa ese usuario (con sus permisos) y se guarda quién es en realidad.
+  if (user.role === 'super' && cookies.cb_como) {
+    const c = readToken(cookies.cb_como);
+    if (c && c.como && c.by === user.id) {
+      const target = await getUser(c.como);
+      if (target && target.role !== 'super') return { ...target, _real: user };
+    }
+  }
+  return user;
 }
 
 const publicUser = (u) => ({ id: u.id, username: u.username, role: u.role, alias: u.alias || '' });
 const whoName = (u) => (u.alias ? `${u.alias} (${u.username})` : u.username);
+// Quién queda anotado: si Pixel Cuyo está "viendo como" alguien, figura Pixel Cuyo (así no parece que lo hizo la otra persona).
+const quien = (u) => (u._real ? `${whoName(u._real)} (viendo como ${u.alias || u.username})` : whoName(u));
 
 // Permisos que Pixel Cuyo prende o apaga por rol desde el panel (super siempre tiene todo).
 // Ver contraseñas, cupos, permisos y la web en construcción es solo de super, fijo.
@@ -581,7 +607,7 @@ function requireRole(ok, message = 'No tenés permiso para hacer esto') {
 async function logActivity(kind, entityId, name, user, action, changes = []) {
   await db.execute({
     sql: 'INSERT INTO activity (kind, entity_id, name, who, action, changes, at, actor_id, actor_role) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    args: [kind, entityId, name, whoName(user), action, JSON.stringify(changes), Date.now(), user.id, user.role],
+    args: [kind, entityId, name, quien(user), action, JSON.stringify(changes), Date.now(), (user._real || user).id, (user._real || user).role],
   });
 }
 
@@ -848,18 +874,40 @@ async function handleApi(req, res, url) {
   }
 
   if (route === 'POST /api/logout') {
-    return send(res, 200, { ok: true }, { 'Set-Cookie': sessionCookie(req, '', 0) });
+    return send(res, 200, { ok: true }, { 'Set-Cookie': [sessionCookie(req, '', 0), comoCookie(req, null)] });
   }
 
   const user = await currentUser(req);
   if (!user) throw new HttpError(401, 'Iniciá sesión');
 
+  // ----- ver como (solo Pixel Cuyo) -----
+  if (route === 'POST /api/como') {
+    const real = user._real || user;
+    requireRole(can.super(real), 'Solo Pixel Cuyo');
+    const target = await getUser(Number((await readJson(req)).userId) || 0);
+    if (!target || target.role === 'super') throw new HttpError(404, 'Ese usuario no existe');
+    return send(res, 200, { ok: true }, { 'Set-Cookie': comoCookie(req, target, real) });
+  }
+  if (route === 'POST /api/como/salir') return send(res, 200, { ok: true }, { 'Set-Cookie': comoCookie(req, null) });
+
+  // Mientras Pixel Cuyo mira como otra persona, no se tocan sus cosas personales.
+  if (user._real && route === 'PUT /api/me/password') throw new HttpError(403, 'Estás viendo como otra persona: su contraseña no se puede cambiar desde acá');
+  if (user._real && ['POST /api/novedades/visto', 'POST /api/cuota/visto'].includes(route)) return send(res, 200, { ok: true, prueba: true });
+
   if (route === 'GET /api/me') {
     let pasos = [];
     try { pasos = JSON.parse((await getUser(user.id)).first_steps || '[]'); } catch { pasos = []; }
-    return send(res, 200, { user: publicUser(user), perms: permsOf(user), maintenance: await inMaintenance(), pasos });
+    return send(res, 200, {
+      user: publicUser(user), perms: permsOf(user), maintenance: await inMaintenance(), pasos,
+      como: user._real ? { alias: user.alias || user.username, role: user.role } : null,
+    });
   }
   if (route === 'POST /api/me/pasos') {
+    if (user._real) {
+      let pasos = [];
+      try { pasos = JSON.parse((await getUser(user.id)).first_steps || '[]'); } catch { pasos = []; }
+      return send(res, 200, { pasos, prueba: true });
+    }
     const paso = String((await readJson(req)).paso || '');
     if (!["guia","clave","app","productos","textos","faq"].includes(paso)) throw new HttpError(400, 'Paso desconocido');
     let pasos = [];
@@ -952,30 +1000,43 @@ async function handleApi(req, res, url) {
   if (route === 'GET /api/cambios') {
     if (can.super(user)) {
       const r = await db.execute('SELECT * FROM change_requests ORDER BY created_at DESC LIMIT 300');
-      return send(res, 200, { cambios: r.rows.map(cambioPublico), nuevos: r.rows.filter((c) => c.status === 'nuevo').length });
+      const usados = await cambiosUsados();
+      return send(res, 200, { cambios: r.rows.map(cambioPublico), nuevos: r.rows.filter((c) => c.status === 'nuevo').length, usados, limite: CAMBIOS_POR_MES, mes: mesAR() });
     }
     requireRole(user.role === 'admin', 'Solo las administradoras pueden pedir cambios');
     const r = await db.execute({ sql: 'SELECT * FROM change_requests WHERE month = ? ORDER BY created_at', args: [mesAR()] });
-    return send(res, 200, { cambios: r.rows.map(cambioPublico), limite: CAMBIOS_POR_MES, quedan: Math.max(0, CAMBIOS_POR_MES - r.rows.length) });
+    return send(res, 200, { cambios: r.rows.map(cambioPublico), limite: CAMBIOS_POR_MES, quedan: Math.max(0, CAMBIOS_POR_MES - (await cambiosUsados())) });
   }
   if (route === 'POST /api/cambios') {
     requireRole(user.role === 'admin', 'Solo las administradoras pueden pedir cambios');
     const texto = cleanDescription((await readJson(req)).texto).slice(0, 2000);
     if (texto.length < 5) throw new HttpError(400, 'Contanos un poquito más qué cambio querés');
-    const usados = Number((await db.execute({ sql: 'SELECT COUNT(*) AS n FROM change_requests WHERE month = ?', args: [mesAR()] })).rows[0].n);
+    const usados = await cambiosUsados();
     if (usados >= CAMBIOS_POR_MES) throw new HttpError(409, `Ya usaste los ${CAMBIOS_POR_MES} cambios de este mes. El mes que viene tenés ${CAMBIOS_POR_MES} más.`);
     await db.execute({
       sql: 'INSERT INTO change_requests (user_id, who, text, month, created_at) VALUES (?, ?, ?, ?, ?)',
-      args: [user.id, whoName(user), texto, mesAR(), Date.now()],
+      args: [user.id, quien(user), texto, mesAR(), Date.now()],
     });
     return send(res, 201, { ok: true, quedan: CAMBIOS_POR_MES - usados - 1 });
+  }
+  // Resetear el cupo del mes: los pedidos quedan en la lista, pero dejan de contar.
+  if (route === 'POST /api/cambios/resetear-mes') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo');
+    await db.execute({ sql: 'UPDATE change_requests SET counts = 0 WHERE month = ?', args: [mesAR()] });
+    return send(res, 200, { ok: true });
   }
   const cambioId = url.pathname.match(/^\/api\/cambios\/(\d+)$/);
   if (cambioId) {
     requireRole(can.super(user), 'Solo Pixel Cuyo');
     const id = Number(cambioId[1]);
     if (req.method === 'PATCH') {
-      const estado = String((await readJson(req)).estado || '');
+      const body = await readJson(req);
+      // Devolver (o volver a cobrar) el cupo de ese pedido.
+      if (body.cuenta !== undefined) {
+        await db.execute({ sql: 'UPDATE change_requests SET counts = ? WHERE id = ?', args: [body.cuenta ? 1 : 0, id] });
+        return send(res, 200, { ok: true });
+      }
+      const estado = String(body.estado || '');
       if (!['nuevo', 'visto', 'hecho'].includes(estado)) throw new HttpError(400, 'Estado inválido');
       await db.execute({ sql: 'UPDATE change_requests SET status = ?, updated_at = ? WHERE id = ?', args: [estado, Date.now(), id] });
       return send(res, 200, { ok: true });

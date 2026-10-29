@@ -39,10 +39,15 @@
 
   <!-- Panel -->
   <div id="app" hidden>
+    <div class="como-banda" id="comoBanda" hidden>
+      <span>👀 Estás viendo como <b id="comoNombre"></b></span>
+      <button type="button" id="comoSalir">Volver a mi panel</button>
+    </div>
     <header class="cabeza">
       <img src="assets/img/monograma-claro.png" alt="" width="30" height="27">
       <h1 class="cabeza__titulo" id="tituloPantalla">Inicio</h1>
       <a class="cabeza__ver" href="/inicio" target="_blank" rel="noopener">Ver web ↗</a>
+      <button type="button" class="cabeza__ver cabeza__como" id="verComo" data-solo="super">👀 Ver como</button>
       <a class="cabeza__icono" id="consultarMartin" target="_blank" rel="noopener" aria-label="Consultar a Martín de Pixel Cuyo por WhatsApp" title="Consultar a Martín">💬</a>
       <button type="button" class="cabeza__icono" id="abrirAvisos" aria-label="Avisos" title="Avisos">🔔<span class="cabeza__badge" id="avisosN" hidden></span></button>
     </header>
@@ -426,6 +431,16 @@
     </form>
   </dialog>
 
+  <!-- Ver como (Pixel Cuyo) -->
+  <dialog class="dlg" id="dlgVerComo">
+    <div class="dlg__cabeza">
+      <h2>👀 Ver el panel como…</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <p class="ayuda">Ves y usás el panel exactamente como esa persona, con sus permisos. Vos seguís con tu sesión: para volver tocá <b>"Volver a mi panel"</b> arriba. Lo que hagas queda en el historial a tu nombre.</p>
+    <ul class="como-lista" id="listaComo"></ul>
+  </dialog>
+
   <!-- Cambios sugeridos (Pixel Cuyo) -->
   <dialog class="dlg dlg--hoja" id="dlgCambiosSugeridos">
     <div class="dlg__cabeza">
@@ -433,6 +448,7 @@
       <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
     </div>
     <p class="ayuda">Lo que te pidieron cambiar en la web. Ellas ven si está <b>recibido</b>, <b>visto</b> o <b>hecho</b>.</p>
+    <div class="cupo-mes" id="cupoMes"></div>
     <button type="button" class="btn btn--borde btn--ancho" id="copiarPendientes" hidden>📋 Copiar todos los pendientes</button>
     <ul class="cambios" id="listaCambios"></ul>
   </dialog>
