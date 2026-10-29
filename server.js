@@ -307,6 +307,8 @@ async function initDb() {
   if (!userCols.includes('pass_view')) await db.execute('ALTER TABLE users ADD COLUMN pass_view TEXT');
   // Quién creó cada usuario: una admin maneja solo a los subadmins que creó ella.
   if (!userCols.includes('created_by_id')) await db.execute('ALTER TABLE users ADD COLUMN created_by_id INTEGER');
+  // "Para arrancar": qué primeros pasos ya hizo cada uno.
+  if (!userCols.includes('first_steps')) await db.execute("ALTER TABLE users ADD COLUMN first_steps TEXT NOT NULL DEFAULT '[]'");
   // Hasta qué novedad del panel leyó cada uno.
   if (!userCols.includes('news_seen')) await db.execute('ALTER TABLE users ADD COLUMN news_seen INTEGER NOT NULL DEFAULT 0');
   // Descripción opcional de cada producto (medidas, material, detalles).
@@ -822,7 +824,20 @@ async function handleApi(req, res, url) {
   const user = await currentUser(req);
   if (!user) throw new HttpError(401, 'Iniciá sesión');
 
-  if (route === 'GET /api/me') return send(res, 200, { user: publicUser(user), perms: permsOf(user), maintenance: await inMaintenance() });
+  if (route === 'GET /api/me') {
+    let pasos = [];
+    try { pasos = JSON.parse((await getUser(user.id)).first_steps || '[]'); } catch { pasos = []; }
+    return send(res, 200, { user: publicUser(user), perms: permsOf(user), maintenance: await inMaintenance(), pasos });
+  }
+  if (route === 'POST /api/me/pasos') {
+    const paso = String((await readJson(req)).paso || '');
+    if (!["guia","clave","app","productos","textos","faq"].includes(paso)) throw new HttpError(400, 'Paso desconocido');
+    let pasos = [];
+    try { pasos = JSON.parse((await getUser(user.id)).first_steps || '[]'); } catch { pasos = []; }
+    if (!pasos.includes(paso)) pasos.push(paso);
+    await db.execute({ sql: 'UPDATE users SET first_steps = ? WHERE id = ?', args: [JSON.stringify(pasos), user.id] });
+    return send(res, 200, { pasos });
+  }
 
   // ----- niveles y permisos (solo Pixel Cuyo) -----
   if (route === 'GET /api/permissions') {

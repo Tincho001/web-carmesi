@@ -52,6 +52,16 @@
     } catch (err) { mostrarError($('loginError'), err); }
   });
 
+  // Login: ver la contraseña mientras se escribe, y ayuda si se la olvidó.
+  $('verClave').addEventListener('click', () => {
+    const input = $('loginForm').password;
+    const ver = input.type === 'password';
+    input.type = ver ? 'text' : 'password';
+    $('verClave').textContent = ver ? '🙈' : '👁';
+    $('verClave').setAttribute('aria-label', ver ? 'Ocultar la contraseña' : 'Mostrar la contraseña');
+  });
+  $('loginAyuda').href = `https://wa.me/5492617206192?text=${encodeURIComponent('¡Hola Martín! No puedo entrar al panel de Carmesí, ¿me ayudás con la contraseña?')}`;
+
   const ROL_NOMBRE = { super: 'Pixel Cuyo (control total)', admin: 'Administradora', vendedor: 'Vendedor/a' };
   // Lo que puede hacer quien entró: lo manda el servidor según los permisos de su nivel.
   let permisos = {};
@@ -65,6 +75,7 @@
     yo = user;
     if (!me) me = await api('GET', '/api/me');
     permisos = me.perms || {};
+    pasosHechos = me.pasos || [];
     $('login').hidden = true;
     $('app').hidden = false;
     const nombre = user.alias || user.username;
@@ -84,6 +95,7 @@
     $('consultarMartin3').hidden = puede.super();
     pintarAvisos();
     await cargar();
+    pintarArranque();
     revisarNovedades();
     irA(location.hash.slice(1) || 'inicio');
   }
@@ -187,6 +199,7 @@
         cinta: f.cinta.value.split('\n').map((x) => x.trim()).filter(Boolean),
       });
       avisar('Textos guardados ✓ Ya se ven en la web');
+      marcarPaso('textos');
       $('dlgTextos').close();
     } catch (err) { mostrarError($('errorTextos'), err); }
   });
@@ -228,8 +241,78 @@
       await api('PUT', '/api/faq', { preguntas: preguntas.filter((x) => x.q) });
       $('dlgFaq').close();
       avisar('Preguntas guardadas ✓');
+      marcarPaso('faq');
     } catch (err) { mostrarError($('errorFaq'), err); }
   });
+
+  // ---------- 🚀 para arrancar: primeros pasos, se tildan solos ----------
+  let pasosHechos = [];
+  const PASOS = [
+    { id: 'guia', icono: '📖', titulo: 'Mirá la guía', texto: 'Todo lo que podés hacer, explicado paso a paso.', boton: 'Abrir guía', hacer: () => abrirGuia() },
+    { id: 'clave', icono: '🔑', titulo: 'Poné tu propia contraseña', texto: 'Una que te acuerdes fácil (mínimo 6 letras o números).', boton: 'Cambiar', hacer: () => $('menuClave').click() },
+    { id: 'app', icono: '📲', titulo: 'Poné el panel en tu celu', texto: 'Un ícono de Carmesí para entrar con un toque.', boton: 'Ver cómo', hacer: () => abrirApp() },
+    { id: 'productos', icono: '👜', titulo: 'Revisá tus productos', texto: 'Mirá que estén bien los nombres, fotos y precios.', boton: 'Ver productos', perm: 'products_edit', hacer: () => { marcarPaso('productos'); irA('productos'); } },
+    { id: 'textos', icono: '📝', titulo: 'Revisá el texto de la tienda', texto: 'El "Carmesí Bags" de abajo y la cinta de frases.', boton: 'Revisar', perm: 'settings', hacer: () => $('menuTextos').click() },
+    { id: 'faq', icono: '❓', titulo: 'Revisá las preguntas frecuentes', texto: 'Sobre todo envíos y formas de pago.', boton: 'Revisar', perm: 'settings', hacer: () => $('menuFaq').click() },
+  ];
+  const misPasos = () => PASOS.filter((p) => !p.perm || puede.hacer(p.perm));
+  function pintarArranque() {
+    const lista = misPasos();
+    const hechos = lista.filter((p) => pasosHechos.includes(p.id)).length;
+    // A Pixel Cuyo no le hace falta, y cuando está todo hecho desaparece.
+    $('arranque').hidden = puede.super() || hechos === lista.length;
+    if ($('arranque').hidden) return;
+    $('arranque').innerHTML = `
+      <div class="arranque__cabeza">
+        <strong>🚀 Para arrancar</strong>
+        <span>${hechos} de ${lista.length}</span>
+      </div>
+      <div class="arranque__barra"><span style="width:${Math.round((hechos / lista.length) * 100)}%"></span></div>
+      <ul>${lista.map((p) => {
+        const ok = pasosHechos.includes(p.id);
+        return `
+        <li class="${ok ? 'hecho' : ''}">
+          <span class="arranque__icono" aria-hidden="true">${ok ? '✅' : p.icono}</span>
+          <span class="arranque__txt"><b>${p.titulo}</b><small>${p.texto}</small></span>
+          ${ok ? '' : `<button type="button" class="mini" data-paso="${p.id}">${p.boton}</button>`}
+        </li>`;
+      }).join('')}</ul>`;
+  }
+  $('arranque').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-paso]');
+    if (b) PASOS.find((p) => p.id === b.dataset.paso).hacer();
+  });
+  async function marcarPaso(id) {
+    if (!yo || pasosHechos.includes(id)) return;
+    try { pasosHechos = (await api('POST', '/api/me/pasos', { paso: id })).pasos; } catch (_) { return; }
+    pintarArranque();
+    if (misPasos().every((p) => pasosHechos.includes(p.id))) avisar('¡Listo! 🎉 Ya tenés todo para arrancar');
+  }
+
+  // ---------- 📲 el panel como app ----------
+  let pedidoInstalar = null;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInstalar = e; $('instalarApp').hidden = false; });
+  function elegirSistema(s) {
+    $('appSistema').querySelectorAll('[data-sistema]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.sistema === s)));
+    document.querySelectorAll('.app-pasos').forEach((o) => { o.hidden = o.dataset.para !== s; });
+  }
+  function abrirApp() {
+    elegirSistema(/iphone|ipad|ipod/i.test(navigator.userAgent) ? 'iphone' : 'android');
+    $('dlgApp').showModal();
+  }
+  $('menuApp').addEventListener('click', abrirApp);
+  $('appSistema').addEventListener('click', (e) => { const b = e.target.closest('[data-sistema]'); if (b) elegirSistema(b.dataset.sistema); });
+  $('instalarApp').addEventListener('click', async () => {
+    if (!pedidoInstalar) return;
+    pedidoInstalar.prompt();
+    const r = await pedidoInstalar.userChoice.catch(() => ({}));
+    pedidoInstalar = null;
+    $('instalarApp').hidden = true;
+    if (r.outcome === 'accepted') { $('dlgApp').close(); marcarPaso('app'); avisar('¡Listo! Ya tenés Carmesí en tu celu 💛'); }
+  });
+  $('appListo').addEventListener('click', () => { $('dlgApp').close(); marcarPaso('app'); });
+  // Si ya lo abrió como app, ese paso está hecho.
+  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) setTimeout(() => marcarPaso('app'), 3000);
 
   // ---------- 🎉 novedades: al entrar aparece lo que todavía no leyó ----------
   let novedades = { items: [], visto: 0 };
@@ -295,6 +378,7 @@
   // ---------- 📖 guía del panel ----------
   // Cada tema tiene data-perm: solo aparecen los de lo que cada uno puede hacer.
   function abrirGuia() {
+    marcarPaso('guia');
     $('guiaBuscar').value = '';
     filtrarGuia();
     $('dlgGuia').showModal();
@@ -1096,6 +1180,7 @@
       await api('PUT', '/api/me/password', { current: e.target.current.value, password: e.target.password.value });
       $('dlgClave').close();
       avisar('Contraseña cambiada ✓');
+      marcarPaso('clave');
     } catch (err) { mostrarError($('errorClave'), err); }
   });
 

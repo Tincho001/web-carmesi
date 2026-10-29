@@ -160,4 +160,14 @@ Si querés cambiarlo por otro (una colección nueva, una temporada), mandale el 
 - Las **frases de la cinta** que pasa de costado debajo de la portada.
 Y las **preguntas frecuentes**, en **⋯ Más → ❓ Preguntas frecuentes**. Revisá sobre todo lo de envíos y pagos, así queda como vos trabajás.`,
   },
+  {
+    id: 16,
+    fecha: '2026-10-29',
+    icono: '📲',
+    titulo: 'El panel como app en tu celu',
+    perm: '',
+    texto: `Podés tener un ícono de **Carmesí** en la pantalla del celu y entrar al panel con un toque.
+Está explicado en **⋯ Más → 📲 Poner el panel en el celu** (para Android y iPhone).
+En **Inicio** también tenés la lista **🚀 Para arrancar**, con los primeros pasos. Se van tildando solos.`,
+  },
 ];

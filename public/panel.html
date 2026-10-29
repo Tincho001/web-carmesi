@@ -7,6 +7,11 @@
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#5e1a22">
   <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="manifest" href="/panel.webmanifest">
+  <link rel="apple-touch-icon" href="/assets/img/app-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Carmesí">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
@@ -17,12 +22,19 @@
   <main class="login" id="login" hidden>
     <img src="assets/img/monograma-claro.png" alt="" width="90" height="80">
     <h1>Panel Carmesí</h1>
+    <p class="login__hola">¡Hola! 👋 Entrá con el usuario y la contraseña que te pasó Martín.</p>
     <form id="loginForm" class="login__form">
-      <label>Usuario <input name="username" autocomplete="username" autocapitalize="none" required></label>
-      <label>Contraseña <input name="password" type="password" autocomplete="current-password" required></label>
+      <label>Usuario <input name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required placeholder="ej: valentina"></label>
+      <label>Contraseña
+        <span class="clave">
+          <input name="password" type="password" autocomplete="current-password" required>
+          <button type="button" class="clave__ver" id="verClave" aria-label="Mostrar la contraseña">👁</button>
+        </span>
+      </label>
       <p class="error" id="loginError" hidden></p>
       <button class="btn btn--claro" type="submit">Entrar</button>
     </form>
+    <a class="login__ayuda" id="loginAyuda" target="_blank" rel="noopener">¿Te olvidaste la contraseña? Escribile a Martín 💬</a>
   </main>
 
   <!-- Panel -->
@@ -40,6 +52,7 @@
     <!-- Inicio -->
     <section class="pantalla" id="pInicio" data-pantalla="inicio">
       <p class="saludo" id="saludo"></p>
+      <div class="arranque" id="arranque" hidden></div>
       <button type="button" class="grande" id="inicioAgregar" data-perm="products_edit">
         <span class="grande__icono" aria-hidden="true">📷</span>
         <span>Agregar producto</span>
@@ -76,6 +89,7 @@
       <div class="quien" id="quien"></div>
       <div class="menu">
         <button type="button" class="fila fila--guia" id="menuGuia"><span aria-hidden="true">📖</span> Cómo usar el panel</button>
+        <button type="button" class="fila" id="menuApp"><span aria-hidden="true">📲</span> Poner el panel en el celu</button>
         <button type="button" class="fila" id="menuNovedades"><span aria-hidden="true">🎉</span> Novedades <em class="fila__badge" id="novedadesN" hidden></em></button>
         <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
         <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
@@ -342,6 +356,33 @@
     <p class="ayuda">👀 veces que abrieron el producto · 🛒 lo agregaron al pedido · 💬 consultaron por WhatsApp · 📤 estaba en un pedido enviado. No cuenta lo que se mira con el panel abierto.</p>
   </dialog>
 
+  <dialog class="dlg dlg--hoja" id="dlgApp">
+    <div class="dlg__cabeza">
+      <h2>📲 El panel en tu celu</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <p class="ayuda">Así te queda un ícono de Carmesí en la pantalla del celu y entrás al panel con un toque, como una app.</p>
+    <button type="button" class="btn btn--bordo btn--ancho" id="instalarApp" hidden>📲 Agregar ahora</button>
+    <div class="chips chips--filtro" id="appSistema">
+      <button type="button" class="chip" data-sistema="android" aria-pressed="true">Android</button>
+      <button type="button" class="chip" data-sistema="iphone">iPhone</button>
+    </div>
+    <ol class="app-pasos" data-para="android">
+      <li>Abrí <b>carmesibags.com.ar/panel</b> en <b>Chrome</b>.</li>
+      <li>Tocá los <b>tres puntitos ⋮</b> de arriba a la derecha.</li>
+      <li>Tocá <b>"Agregar a la pantalla principal"</b> (o "Instalar app").</li>
+      <li>Tocá <b>Agregar</b>. ¡Listo! Te aparece el ícono <b>Carmesí</b> 💛</li>
+    </ol>
+    <ol class="app-pasos" data-para="iphone" hidden>
+      <li>Abrí <b>carmesibags.com.ar/panel</b> en <b>Safari</b>.</li>
+      <li>Tocá el botón <b>Compartir</b> (el cuadradito con la flecha para arriba ⬆️), abajo en el medio.</li>
+      <li>Bajá y tocá <b>"Agregar a inicio"</b>.</li>
+      <li>Tocá <b>Agregar</b>. ¡Listo! Te aparece el ícono <b>Carmesí</b> 💛</li>
+    </ol>
+    <p class="ayuda">No vas a tener que poner la contraseña cada vez: queda abierta por 30 días.</p>
+    <button type="button" class="btn btn--borde btn--ancho" id="appListo">✅ Listo, ya lo agregué</button>
+  </dialog>
+
   <dialog class="dlg dlg--hoja" id="dlgTextos">
     <form id="formTextos">
       <div class="dlg__cabeza">
@@ -601,6 +642,17 @@
       <li>Cambiá el texto, tocá <b>＋ Agregar pregunta</b> o la <b>✕</b> para borrar una.</li>
       <li>Tocá <b>Guardar</b>.</li>
     </ol>
+        </div>
+      </details>
+      <details class="guia__tema">
+        <summary><span aria-hidden="true">📲</span>Tener el panel como app en el celu</summary>
+        <div class="guia__cuerpo">
+    <p>Podés tener un ícono de <b>Carmesí</b> en la pantalla del celu para entrar al panel con un toque.</p>
+    <ul>
+      <li><b>Android (Chrome)</b>: tres puntitos ⋮ → <b>Agregar a la pantalla principal</b>.</li>
+      <li><b>iPhone (Safari)</b>: botón Compartir ⬆️ → <b>Agregar a inicio</b>.</li>
+    </ul>
+    <p>Está explicado paso a paso en <b>⋯ Más → 📲 Poner el panel en el celu</b>.</p>
         </div>
       </details>
       <details class="guia__tema">
