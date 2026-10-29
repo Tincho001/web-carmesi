@@ -105,6 +105,27 @@
     pintarGrilla();
   });
 
+  // ---------- Animaciones ----------
+  // En compu (con mouse), al pasar por la foto se ve la segunda. En el celu no se carga, para no gastar datos.
+  const conMouse = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  // Las cosas aparecen suave a medida que se baja (salvo que el celu pida menos movimiento).
+  const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const observador = !quieto && 'IntersectionObserver' in window
+    ? new IntersectionObserver((entradas) => entradas.forEach((e) => {
+      if (!e.isIntersecting) return;
+      e.target.classList.add('visible');
+      observador.unobserve(e.target);
+    }), { rootMargin: '0px 0px -8% 0px' })
+    : null;
+  function aparecer(elementos) {
+    if (!observador) return;
+    [...elementos].forEach((el, i) => {
+      el.classList.add('aparece');
+      el.style.transitionDelay = `${(i % 4) * 70}ms`;
+      observador.observe(el);
+    });
+  }
+
   // ---------- Grilla ----------
   const grilla = $('grilla');
   function pintarGrilla() {
@@ -113,6 +134,7 @@
       <article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}">
         <a class="tarjeta__foto" href="${enlace(p)}" data-ver="${p.id}" aria-label="Ver ${escapar(p.nombre)} ${escapar(p.color)}">
           <img src="${p.miniatura}" alt="${escapar(p.nombre)} ${escapar(p.color)}" loading="lazy" width="720" height="900">
+          ${conMouse && p.fotos && p.fotos.length > 1 ? `<img class="tarjeta__foto2" src="${p.fotos[1]}" alt="" loading="lazy" aria-hidden="true">` : ''}
           ${p.agotado ? '<span class="tarjeta__agotado">Sin stock</span>' : ''}
           ${p.precioAnterior && !p.agotado ? `<span class="tarjeta__oferta">Oferta -${descuento(p)}%</span>` : ''}
           ${p.nuevo ? '<span class="tarjeta__nuevo">Nuevo</span>' : ''}
@@ -125,6 +147,7 @@
           ? `<button class="tarjeta__agregar" type="button" data-avisame="${p.id}">🔔 Avisame</button>`
           : `<button class="tarjeta__agregar" type="button" data-agregar="${p.id}">Agregar al pedido</button>`}
       </article>`).join('');
+    aparecer(grilla.querySelectorAll('.tarjeta'));
     const vacio = lista.length === 0;
     $('vacio').hidden = !vacio;
     if (vacio) {
@@ -235,6 +258,11 @@
     pedido[id] = (pedido[id] || 0) + 1;
     guardar();
     pintarPedido();
+    // La bolsita da un saltito.
+    const bolsa = $('abrirPedido');
+    bolsa.classList.remove('salta');
+    void bolsa.offsetWidth;
+    bolsa.classList.add('salta');
     avisar('Agregado a tu pedido ✓');
   }
 
@@ -318,4 +346,5 @@
 
   pintarGrilla();
   pintarPedido();
+  aparecer(document.querySelectorAll('.catalogo > .etiqueta, .sobre, .como li, .preguntas .etiqueta, .pregunta'));
 })();

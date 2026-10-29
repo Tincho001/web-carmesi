@@ -125,4 +125,17 @@ Si alguna vez se borra algo por error, avisale a Martín y se puede recuperar.`,
     texto: `Abajo de la web ahora están los íconos de **WhatsApp, Instagram y TikTok** (@bags_carmesi), y también en la página de "en construcción".
 Si algún día cambia el usuario, se cambia en **⋯ Más → 💬 WhatsApp y redes**.`,
   },
+  {
+    id: 13,
+    fecha: '2026-10-29',
+    icono: '🎞️',
+    titulo: 'La web ahora tiene movimiento',
+    perm: '',
+    texto: `Le sumamos animaciones suaves a la tienda:
+- El **logo se dibuja** al entrar y el resto aparece de a poco.
+- Una **cinta** con frases pasa de costado debajo de la portada.
+- En la compu, al pasar el mouse por un producto se ve **la segunda foto**. Otra razón para cargarle varias 📸
+- La bolsita del pedido **salta** cuando agregan algo.
+No tenés que hacer nada: funciona solo.`,
+  },
 ];
