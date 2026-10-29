@@ -907,7 +907,7 @@ async function handleApi(req, res, url) {
     const mostrar = user.role === 'admin' && toca && !visto;
     return send(res, 200, mostrar || url.searchParams.has('prueba') && can.super(user)
       // En la vista de prueba, si hoy no toca, se muestra como si faltaran unos días.
-      ? { mostrar: true, dia: c.dia, faltan: toca ? faltan : Math.min(3, c.aviso), monto: c.monto, alias: c.alias, titular: c.titular }
+      ? { mostrar: true, dia: c.dia, faltan: toca ? faltan : Math.min(3, c.aviso), monto: c.monto, alias: c.alias, titular: c.titular, datos: c.alias || c.titular ? '' : (c.datos || '') }
       : { mostrar: false });
   }
   if (route === 'POST /api/cuota/visto') {
@@ -927,6 +927,9 @@ async function handleApi(req, res, url) {
     if (!(aviso >= 0 && aviso <= 15)) throw new HttpError(400, 'Los días de aviso tienen que ser entre 0 y 15');
     const alias = cleanText(body.alias, 60).replace(/\s+/g, '');
     const c = { activo: !!body.activo, dia, aviso, monto: cleanText(body.monto, 30), alias, titular: cleanText(body.titular, 80) };
+    // Lo que estaba en el campo viejo "Datos para pagar" se guarda hasta que se carguen alias o titular.
+    const viejo = (await getCuota()).datos;
+    if (viejo && !c.alias && !c.titular) c.datos = viejo;
     await setMeta('cuota', JSON.stringify(c));
     return send(res, 200, c);
   }

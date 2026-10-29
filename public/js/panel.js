@@ -376,7 +376,8 @@
     $('cuotaDatos').hidden = !c.alias && !c.titular;
     $('cuotaAlias').value = c.alias || '';
     $('cuotaAlias').parentElement.hidden = !c.alias;
-    $('cuotaTitular').textContent = c.titular ? `A nombre de ${c.titular}` : '';
+    $('cuotaTitular').textContent = c.titular ? `A nombre de ${c.titular}` : (c.datos || '');
+    if (c.datos && !c.alias && !c.titular) $('cuotaDatos').hidden = false;
     $('cuotaWa').href = `https://wa.me/${WA_MARTIN}?text=${encodeURIComponent(`¡Hola Martín! Soy ${yo.alias || yo.username} de Carmesí. Te escribo por la cuota de la web del día ${c.dia}: `)}`;
     $('dlgCuota').showModal();
   }
@@ -417,6 +418,9 @@
       f.monto.value = c.monto;
       f.alias.value = c.alias || '';
       f.titular.value = c.titular || '';
+      // Datos cargados antes en un solo campo: se muestran para pasarlos a alias y titular.
+      $('cuotaViejo').hidden = !c.datos;
+      $('cuotaViejo').textContent = c.datos ? `Antes tenías cargado: "${c.datos}". Pasalo a Alias y A nombre de, y guardá.` : '';
       mostrarError($('errorCuota'), null);
       $('dlgCuotaConfig').showModal();
     } catch (err) { avisar(err.message); }

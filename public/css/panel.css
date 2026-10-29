@@ -543,3 +543,4 @@ button { cursor: pointer; }
 .cuota__datos input { padding: 10px 12px; border: 1px solid #e6c9a8; border-radius: 10px; background: #fff; font: inherit; font-size: 15px; font-weight: 600; color: var(--tinta); }
 .cuota__datos small { font-size: 13px; }
 .cuota__datos [hidden] { display: none; }
+.cuota__viejo { margin: 0; padding: 10px 12px; border-radius: 10px; background: #fbf1dd; color: #6b4a12; font-size: 12.5px; }
