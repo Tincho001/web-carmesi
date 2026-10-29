@@ -341,8 +341,25 @@
     } catch (err) { mostrarError($('errorCambios'), err); } finally { boton.disabled = false; }
   });
 
+  let cambiosSugeridos = [];
+  // Copiar al portapapeles (si el navegador no deja, se copia a la vieja usanza).
+  async function copiarTexto(texto) {
+    try { await navigator.clipboard.writeText(texto); return true; } catch (_) {
+      const t = document.createElement('textarea');
+      t.value = texto;
+      t.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(t);
+      t.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+      t.remove();
+      return ok;
+    }
+  }
   async function pintarCambiosSugeridos() {
     const { cambios } = await api('GET', '/api/cambios');
+    cambiosSugeridos = cambios;
+    $('copiarPendientes').hidden = cambios.filter((x) => x.estado !== 'hecho').length < 2;
     const nombreMes = (m) => new Date(m + '-15T12:00:00').toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
     let mes = '';
     $('listaCambios').innerHTML = cambios.map((x) => {
@@ -354,6 +371,7 @@
           <p>${escapar(x.texto)}</p>
           <div class="cambio__acciones">
             <span class="cambio__estado">${ESTADO_CAMBIO[x.estado] || x.estado}</span>
+            <button type="button" class="mini" data-cambio-copiar="${x.id}">📋 Copiar</button>
             ${x.estado !== 'visto' && x.estado !== 'hecho' ? `<button type="button" class="mini" data-cambio="${x.id}" data-estado="visto">👀 Visto</button>` : ''}
             ${x.estado !== 'hecho' ? `<button type="button" class="mini" data-cambio="${x.id}" data-estado="hecho">✅ Hecho</button>` : `<button type="button" class="mini" data-cambio="${x.id}" data-estado="visto">Deshacer</button>`}
             <button type="button" class="mini mini--borrar" data-cambio-borrar="${x.id}" aria-label="Borrar este pedido">✕</button>
@@ -361,10 +379,26 @@
         </li>`;
     }).join('') || '<li class="vacio">Todavía no te pidieron cambios. 👌</li>';
   }
+  // Todos los que no están hechos, uno debajo del otro y numerados.
+  $('copiarPendientes').addEventListener('click', async () => {
+    const pend = cambiosSugeridos.filter((x) => x.estado !== 'hecho').slice().reverse();
+    const texto = pend.map((x, i) => `${i + 1}. ${x.texto}`).join('\n\n');
+    if (!(await copiarTexto(texto))) return avisar('No se pudo copiar');
+    avisar(`${pend.length} pedidos copiados ✓`);
+  });
   $('menuCambiosSugeridos').addEventListener('click', async () => {
     try { await pintarCambiosSugeridos(); $('dlgCambiosSugeridos').showModal(); } catch (err) { avisar(err.message); }
   });
   $('listaCambios').addEventListener('click', async (e) => {
+    const copiar = e.target.closest('[data-cambio-copiar]');
+    if (copiar) {
+      const x = cambiosSugeridos.find((c) => String(c.id) === copiar.dataset.cambioCopiar);
+      if (!(await copiarTexto(x.texto))) return avisar('No se pudo copiar. Mantené apretado el texto para copiarlo.');
+      copiar.textContent = '✓ Copiado';
+      avisar('Pedido copiado ✓');
+      setTimeout(() => { copiar.textContent = '📋 Copiar'; }, 1800);
+      return;
+    }
     const est = e.target.closest('[data-estado]');
     const borrar = e.target.closest('[data-cambio-borrar]');
     try {
