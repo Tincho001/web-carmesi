@@ -417,3 +417,24 @@ button { cursor: pointer; }
 .vista__precio s { font-size: .8em; }
 .marca--oferta { left: auto !important; right: 8px; background: #b3261e !important; color: #fff !important; }
 .oferta-chip { display: inline-block; padding: 2px 8px; border-radius: 99px; background: #b3261e; color: #fff; font-size: 12px; font-style: normal; font-weight: 600; vertical-align: middle; }
+
+/* ---------- Guía del panel ---------- */
+.guia-acceso { display: flex; align-items: center; gap: 12px; width: 100%; margin: 12px 0 0; padding: 12px 14px; border: 1px solid var(--linea); border-radius: 14px; background: #fff; text-align: left; color: var(--tinta); }
+.guia-acceso > span:first-child { font-size: 24px; }
+.guia-acceso strong { display: block; font-size: 14px; }
+.guia-acceso small { color: var(--gris); font-size: 12px; }
+.guia-acceso::after { content: "\203A"; margin-left: auto; font-size: 20px; color: var(--gris); }
+#dlgGuia .buscar { margin: 12px 0 10px; }
+.guia { display: grid; gap: 8px; }
+.guia__tema { border: 1px solid var(--linea); border-radius: 14px; background: #fff; overflow: hidden; }
+.guia__tema summary { display: flex; align-items: center; gap: 10px; padding: 13px 14px; font-size: 14px; font-weight: 600; cursor: pointer; list-style: none; }
+.guia__tema summary::-webkit-details-marker { display: none; }
+.guia__tema summary span { width: 24px; text-align: center; font-size: 18px; }
+.guia__tema summary::after { content: "+"; margin-left: auto; font-size: 20px; font-weight: 400; color: var(--gris); }
+.guia__tema[open] summary::after { content: "−"; }
+.guia__tema[open] summary { color: var(--bordo); border-bottom: 1px solid var(--linea); }
+.guia__cuerpo { padding: 4px 16px 14px; font-size: 13.5px; line-height: 1.55; }
+.guia__cuerpo p { margin: 10px 0 0; }
+.guia__cuerpo ol, .guia__cuerpo ul { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 6px; }
+.guia__tip { padding: 9px 12px; border-radius: 10px; background: #fbf1dd; color: #6b4a12; }
+.guia__martin { margin-top: 14px; }

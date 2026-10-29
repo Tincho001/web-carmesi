@@ -45,6 +45,7 @@
         <span>Agregar producto</span>
         <small>Sacale una foto y listo</small>
       </button>
+      <button type="button" class="guia-acceso" id="inicioGuia"><span aria-hidden="true">📖</span><span><strong>¿Cómo se hace?</strong><small>Guía del panel: todo explicado paso a paso</small></span></button>
       <div class="numeros" id="numeros"></div>
       <div id="ultimos" data-perm="activity">
         <h2 class="subtitulo">Últimos cambios</h2>
@@ -74,6 +75,7 @@
     <section class="pantalla" id="pMas" data-pantalla="mas" hidden>
       <div class="quien" id="quien"></div>
       <div class="menu">
+        <button type="button" class="fila fila--guia" id="menuGuia"><span aria-hidden="true">📖</span> Cómo usar el panel</button>
         <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
         <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
         <button type="button" class="fila" id="menuNegocio" data-perm="settings"><span aria-hidden="true">💬</span> WhatsApp e Instagram</button>
@@ -316,6 +318,196 @@
     </div>
     <h3 class="alm__titulo" id="almTitulo"></h3>
     <ul class="historial" id="listaHistorial"></ul>
+  </dialog>
+
+
+  <dialog class="dlg dlg--hoja" id="dlgGuia">
+    <div class="dlg__cabeza">
+      <h2>📖 Cómo usar el panel</h2>
+      <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <input type="search" class="buscar" id="guiaBuscar" placeholder="¿Qué querés hacer? Ej: oferta, foto, stock" aria-label="Buscar en la guía">
+    <div class="guia" id="guia">
+      <details class="guia__tema">
+        <summary><span aria-hidden="true">🏠</span>Cómo moverte por el panel</summary>
+        <div class="guia__cuerpo">
+    <p>Abajo tenés la barra con las secciones:</p>
+    <ul>
+      <li><b>🏠 Inicio</b>: el botón grande para agregar un producto y los números de la tienda.</li>
+      <li><b>👜 Productos</b>: todos los productos. Arriba podés buscar por nombre o color y filtrar por categoría, sin stock u ocultos.</li>
+      <li data-perm="categories"><b>🗂️ Categorías</b>: las secciones de la tienda (Carteras, Bolsos…).</li>
+      <li><b>⋯ Más</b>: tu usuario, contraseña, esta guía y otras opciones.</li>
+    </ul>
+    <p>Arriba a la derecha: <b>Ver web ↗</b> abre la tienda como la ve una clienta, <b>💬</b> le escribe a Martín y <b>🔔</b> son los avisos.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="products_edit">
+        <summary><span aria-hidden="true">📷</span>Cargar un producto nuevo</summary>
+        <div class="guia__cuerpo">
+    <ol>
+      <li>Tocá <b>📷 Agregar producto</b> (en Inicio) o <b>＋ Agregar</b> (en Productos).</li>
+      <li><b>Paso 1 – Foto:</b> <b>📷 Sacar foto</b> abre la cámara; <b>🖼️ Galería</b> elige una que ya tengas. Esta es la foto principal: de frente, con buena luz.</li>
+      <li><b>Paso 2 – Datos:</b> sumá más fotos si querés, poné nombre, color, categoría y precio. La descripción es opcional.</li>
+      <li><b>Paso 3 – Vista previa:</b> ves cómo queda en la web. Si está bien, <b>Guardar</b>. Si algo está mal, volvé con <b>←</b>.</li>
+    </ol>
+    <p class="guia__tip">💡 Con <b>Guardar y cargar otro color</b> pasás directo a cargar el mismo modelo en otro color.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="products_edit">
+        <summary><span aria-hidden="true">🖼️</span>Fotos: hasta 4 por producto</summary>
+        <div class="guia__cuerpo">
+    <p>Cada producto puede tener <b>hasta 4 fotos</b>. Lo ideal: <b>de frente</b> (la principal), <b>de costado</b>, <b>por dentro</b> y <b>un detalle</b> (cierre, costura, textura).</p>
+    <ul>
+      <li>En el paso 2 está la tira de fotos: tocá 📷 o 🖼️ en el cuadradito <b>＋ Foto</b>.</li>
+      <li>Para sacar una foto, tocá la <b>✕</b> de esa foto.</li>
+      <li>En la web, la clienta las pasa deslizando con el dedo.</li>
+    </ul>
+    <p class="guia__tip">💡 Para que salgan lindas: luz de día (cerca de una ventana), fondo liso y la cartera centrada.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="products_edit">
+        <summary><span aria-hidden="true">✨</span>Quitar el fondo de la foto</summary>
+        <div class="guia__cuerpo">
+    <p>Si la foto tiene un fondo feo (la mesa, la cama, la pared), tocá <b>✨ Quitar fondo</b>. Queda con el fondo crema de Carmesí, igual a las demás.</p>
+    <ul>
+      <li>Tarda unos segundos; la primera vez un poco más.</li>
+      <li>Si no te gusta cómo quedó, tocá <b>Deshacer</b> y vuelve la original.</li>
+      <li>Sale mejor si la cartera se distingue bien del fondo.</li>
+    </ul>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="products_edit">
+        <summary><span aria-hidden="true">🎨</span>Mismo modelo en otro color</summary>
+        <div class="guia__cuerpo">
+    <ol>
+      <li>Abrí el producto (tocalo en la lista).</li>
+      <li>Tocá <b>🎨 Otro color</b>.</li>
+      <li>Sacale la foto al color nuevo y elegí el color. El nombre, el precio y la categoría ya quedan cargados.</li>
+    </ol>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="products_edit">
+        <summary><span aria-hidden="true">✏️</span>Cambiar precio, nombre, fotos o descripción</summary>
+        <div class="guia__cuerpo">
+    <ol>
+      <li>Abrí el producto y tocá <b>✏️ Editar</b>.</li>
+      <li>Cambiá lo que quieras: precio, nombre, color, categoría, fotos o descripción.</li>
+      <li>Tocá <b>Siguiente</b> y después <b>Guardar</b>.</li>
+    </ol>
+    <p>En la descripción podés poner medidas, material, bolsillos, tipo de correa… La clienta la ve al abrir el producto.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="products_edit">
+        <summary><span aria-hidden="true">🏷️</span>Poner un producto en oferta</summary>
+        <div class="guia__cuerpo">
+    <ol>
+      <li>Abrí el producto y tocá <b>✏️ Editar</b>.</li>
+      <li>En <b>Precio</b> poné el precio nuevo (el de oferta).</li>
+      <li>Activá <b>Está en oferta</b> y en <b>Precio anterior</b> poné el de antes (más alto).</li>
+      <li>Guardá. En la web se ve el precio viejo <s>tachado</s> y una etiqueta roja con el % de descuento, que se calcula solo.</li>
+    </ol>
+    <p>Para <b>sacar la oferta</b>: Editar → apagá <b>Está en oferta</b> → Guardar.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="products_edit">
+        <summary><span aria-hidden="true">⚡</span>Sin stock y ocultar</summary>
+        <div class="guia__cuerpo">
+    <p>Abrí el producto y usá los interruptores. Se guarda solo, no hace falta tocar nada más.</p>
+    <ul>
+      <li><b>Sin stock</b>: se sigue viendo en la web, pero no se puede pedir. Ideal si va a volver a entrar.</li>
+      <li><b>Oculto</b>: desaparece de la web, pero no se borra. Lo volvés a mostrar cuando quieras.</li>
+    </ul>
+    <p>En <b>Productos</b> podés filtrar por <b>Sin stock</b> u <b>Ocultos</b> para encontrarlos rápido.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="products_edit">
+        <summary><span aria-hidden="true">↕️</span>Cambiar el orden en la web</summary>
+        <div class="guia__cuerpo">
+    <p>Abrí el producto: abajo dice, por ejemplo, <b>“Lugar en Carteras: 3 de 12”</b>. Con las flechitas <b>↑ ↓</b> lo subís o bajás.</p>
+    <p>Los productos nuevos aparecen primeros en su categoría.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="products_delete">
+        <summary><span aria-hidden="true">🗑️</span>Borrar un producto</summary>
+        <div class="guia__cuerpo">
+    <p>Abrí el producto y tocá <b>Borrar producto</b> (abajo de todo). Te pregunta antes de borrarlo.</p>
+    <p class="guia__tip">⚠️ Borrar no se puede deshacer. Si solo no lo querés mostrar por un tiempo, mejor usá <b>Oculto</b>.</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="categories">
+        <summary><span aria-hidden="true">🗂️</span>Categorías</summary>
+        <div class="guia__cuerpo">
+    <ul>
+      <li><b>Agregar</b>: en Categorías escribí el nombre arriba (ej: Mochilas) y tocá <b>Agregar</b>.</li>
+      <li><b>Ordenar</b>: con las flechas cambiás el orden de los botones en la web.</li>
+      <li><b>Ver sus productos</b>: tocá la categoría.</li>
+      <li><b>Borrar</b>: solo se puede si la categoría está vacía (primero pasá o borrá sus productos).</li>
+    </ul>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="users|admins">
+        <summary><span aria-hidden="true">👥</span>Usuarios: crear vendedores o ayudantes</summary>
+        <div class="guia__cuerpo">
+    <ol>
+      <li>Andá a <b>⋯ Más → 👥 Usuarios</b>.</li>
+      <li>Abajo, en <b>Nuevo usuario</b>: poné el usuario (con el que entra), el nombre, una contraseña y el rol.</li>
+      <li>Tocá <b>Crear usuario</b> y pasale a esa persona su usuario y contraseña.</li>
+    </ol>
+    <ul>
+      <li>Si alguien se olvida la contraseña, tocá <b>Nueva contraseña</b> en su usuario.</li>
+      <li>Si alguien deja de trabajar, tocá <b>Borrar</b> y ya no puede entrar.</li>
+      <li>Arriba ves cuántos perfiles te quedan. Si llegaste al límite, con <b>💬 Pedir un perfil más</b> le escribís a Pixel Cuyo.</li>
+    </ul>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="activity">
+        <summary><span aria-hidden="true">🕑</span>Historial de cambios y Excel</summary>
+        <div class="guia__cuerpo">
+    <p>En <b>⋯ Más → 🕑 Historial</b> ves todo lo que se cambió en la tienda: quién, qué y cuándo.</p>
+    <ul>
+      <li>En el almanaque, los días con <b>puntito</b> tuvieron cambios. Tocá un día para verlos.</li>
+      <li><b>⬇️ Bajar en Excel</b>: el mes que estás viendo o todo junto.</li>
+      <li>Se guardan los <b>últimos 6 meses</b>. 10 días antes de que se borre algo, te llega un aviso a la 🔔 para que lo bajes si lo querés guardar.</li>
+    </ul>
+        </div>
+      </details>
+      <details class="guia__tema">
+        <summary><span aria-hidden="true">🔔</span>Avisos</summary>
+        <div class="guia__cuerpo">
+    <p>Cuando la campanita tiene un <b>número rojo</b>, hay algo para ver. Tocala y te dice qué es (por ejemplo, que se va a borrar historial viejo).</p>
+        </div>
+      </details>
+      <details class="guia__tema" data-perm="settings">
+        <summary><span aria-hidden="true">💬</span>WhatsApp e Instagram de la tienda</summary>
+        <div class="guia__cuerpo">
+    <p>En <b>⋯ Más → 💬 WhatsApp e Instagram</b> cambiás el número que recibe los pedidos y el Instagram que aparece en la web.</p>
+    <p>El WhatsApp va con <b>549</b> adelante y sin el 15. Ej: 5492612554003.</p>
+        </div>
+      </details>
+      <details class="guia__tema">
+        <summary><span aria-hidden="true">🛍️</span>Cómo compra una clienta</summary>
+        <div class="guia__cuerpo">
+    <ol>
+      <li>Entra a la web, mira los productos y toca <b>Agregar al pedido</b>.</li>
+      <li>Toca la bolsita de arriba y <b>Enviar pedido por WhatsApp</b>.</li>
+      <li>Te llega un WhatsApp con la lista de productos, colores y el total. Desde ahí coordinan pago y entrega.</li>
+    </ol>
+    <p>Los productos <b>sin stock</b> no se pueden agregar; los <b>ocultos</b> no se ven.</p>
+        </div>
+      </details>
+      <details class="guia__tema">
+        <summary><span aria-hidden="true">🔑</span>Mi contraseña</summary>
+        <div class="guia__cuerpo">
+    <ul>
+      <li>Para cambiarla: <b>⋯ Más → 🔑 Cambiar mi contraseña</b>.</li>
+      <li>Si te la olvidaste, pedile a quien te creó el usuario que te ponga una nueva.</li>
+      <li>No compartas tu contraseña: cada persona tiene la suya y así queda en el historial quién hizo cada cambio.</li>
+    </ul>
+        </div>
+      </details>
+    </div>
+    <p class="vacio" id="guiaVacia" hidden>No encontré nada con eso. Probá con otra palabra o preguntale a Martín 👇</p>
+    <a class="btn btn--wa btn--ancho guia__martin" id="consultarMartin3" target="_blank" rel="noopener">💬 ¿No está lo que buscás? Escribile a Martín</a>
   </dialog>
 
   <div class="aviso" id="aviso" role="status" aria-live="polite"></div>

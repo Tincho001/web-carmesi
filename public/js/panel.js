@@ -80,6 +80,8 @@
     $('consultaCaja').hidden = puede.super();
     $('consultarMartin').href = link;
     $('consultarMartin2').href = link;
+    $('consultarMartin3').href = link;
+    $('consultarMartin3').hidden = puede.super();
     pintarAvisos();
     await cargar();
     irA(location.hash.slice(1) || 'inicio');
@@ -106,6 +108,35 @@
     pintarGrilla();
     pintarCategorias();
   }
+
+  // ---------- 📖 guía del panel ----------
+  // Cada tema tiene data-perm: solo aparecen los de lo que cada uno puede hacer.
+  function abrirGuia() {
+    $('guiaBuscar').value = '';
+    filtrarGuia();
+    $('dlgGuia').showModal();
+  }
+  const sinTildes = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  function filtrarGuia() {
+    const q = sinTildes($('guiaBuscar').value.trim());
+    let hay = 0;
+    $('guia').querySelectorAll('.guia__tema').forEach((t) => {
+      if (t.dataset.perm && !t.dataset.perm.split('|').some(puede.hacer)) return;
+      const ok = !q || sinTildes(t.textContent).includes(q);
+      t.style.display = ok ? '' : 'none';
+      t.open = !!q && ok;
+      if (ok) hay++;
+    });
+    $('guiaVacia').hidden = hay > 0;
+  }
+  $('guiaBuscar').addEventListener('input', filtrarGuia);
+  $('menuGuia').addEventListener('click', abrirGuia);
+  $('inicioGuia').addEventListener('click', abrirGuia);
+  // Al abrir un tema se cierran los demás, para que no quede una lista larguísima.
+  $('guia').addEventListener('toggle', (e) => {
+    if (!e.target.open || $('guiaBuscar').value) return;
+    $('guia').querySelectorAll('.guia__tema[open]').forEach((t) => { if (t !== e.target) t.open = false; });
+  }, true);
 
   // ---------- 🔔 avisos y 💬 consulta a Martín ----------
   const WA_MARTIN = '5492617206192';
