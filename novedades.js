@@ -182,4 +182,15 @@ En **Inicio** también tenés la lista **🚀 Para arrancar**, con los primeros 
 - Podés pedir hasta **3 cambios por mes** (no se acumulan).
 - Abajo ves si tu pedido está **Recibido**, **Visto** o **Hecho**.`,
   },
+  {
+    id: 18,
+    fecha: '2026-10-30',
+    icono: '🔍',
+    titulo: 'Buscador en la tienda',
+    perm: '',
+    texto: `Ahora las clientas pueden **buscar** en la web: arriba de las categorías hay un buscador.
+- Busca por nombre, color, categoría y descripción (ej: "cartera negra", "leopardo", "matero").
+- Si no encuentra nada, les ofrece consultarte por WhatsApp.
+💡 Por eso conviene poner nombres y colores claros, y algo de descripción en cada producto.`,
+  },
 ];

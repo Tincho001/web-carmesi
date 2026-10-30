@@ -137,8 +137,38 @@
 
   // ---------- Grilla ----------
   const grilla = $('grilla');
+  // Buscador: busca en nombre, color, categoría y descripción, sin importar tildes ni mayúsculas.
+  const sinTildes = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  let busqueda = '';
+  const coincide = (p) => {
+    const texto = sinTildes(`${p.nombre} ${p.color} ${nombreCategoria(p.categoria)} ${p.descripcion || ''}`);
+    // Cada palabra se busca por su raíz: "negra" encuentra "negro", "carteras" encuentra "cartera".
+    const raiz = (w) => {
+      let r = w.length > 3 ? w.replace(/(es|s)$/, '') : w;
+      if (r.length >= 4) r = r.replace(/[aoe]$/, '');
+      return r;
+    };
+    return sinTildes(busqueda).split(/\s+/).filter(Boolean).every((palabra) => texto.includes(raiz(palabra)));
+  };
+  const buscar = $('buscar');
+  let pausa;
+  buscar.addEventListener('input', () => {
+    $('buscarBorrar').hidden = !buscar.value;
+    clearTimeout(pausa);
+    pausa = setTimeout(() => { busqueda = buscar.value.trim(); pintarGrilla(); }, 150);
+  });
+  buscar.addEventListener('keydown', (e) => { if (e.key === 'Enter') buscar.blur(); });
+  $('buscarBorrar').addEventListener('click', () => {
+    buscar.value = '';
+    busqueda = '';
+    $('buscarBorrar').hidden = true;
+    pintarGrilla();
+    buscar.focus();
+  });
+
   function pintarGrilla() {
-    const lista = filtro === 'todos' ? productos : filtro === 'nuevos' ? productos.filter((p) => p.nuevo) : productos.filter((p) => p.categoria === filtro);
+    let lista = filtro === 'todos' ? productos : filtro === 'nuevos' ? productos.filter((p) => p.nuevo) : productos.filter((p) => p.categoria === filtro);
+    if (busqueda) lista = lista.filter(coincide);
     grilla.innerHTML = lista.map((p) => `
       <article class="tarjeta${p.agotado ? ' tarjeta--agotada' : ''}">
         <a class="tarjeta__foto" href="${enlace(p)}" data-ver="${p.id}" aria-label="Ver ${escapar(p.nombre)} ${escapar(p.color)}">
@@ -159,7 +189,11 @@
     aparecer(grilla.querySelectorAll('.tarjeta'));
     const vacio = lista.length === 0;
     $('vacio').hidden = !vacio;
-    if (vacio) {
+    if (vacio && busqueda) {
+      $('vacioTexto').textContent = `No encontramos "${busqueda}"${filtro !== 'todos' ? ' en esta categoría' : ''}. ¡Consultanos, capaz lo tenemos!`;
+      $('waVacio').href = urlWhatsapp(`¡Hola Carmesí! ¿Tienen ${busqueda}? 😊`);
+    } else if (vacio) {
+      $('vacioTexto').textContent = 'Pronto vas a encontrar acá esta categoría.';
       $('waVacio').href = urlWhatsapp(`¡Hola Carmesí! Quería consultar por ${nombreCategoria(filtro).toLowerCase()} 😊`);
     }
   }

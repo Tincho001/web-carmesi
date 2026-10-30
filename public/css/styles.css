@@ -455,3 +455,25 @@ a.tarjeta__foto { display: block; }
   .portada__video::after { background: linear-gradient(transparent 70%, rgba(71, 18, 26, .35)); }
 }
 @media (prefers-reduced-motion: reduce) { .portada__video { animation: none; } }
+
+/* ---------- Buscador de la tienda ---------- */
+/* Delicado: línea fina crema sobre el bordó, lupa delgada y el texto de ejemplo en la letra de la marca. */
+.buscador { position: relative; max-width: 420px; margin: 0 auto 26px; }
+.buscador svg { position: absolute; left: 18px; top: 50%; width: 17px; height: 17px; transform: translateY(-50%); fill: none; stroke: var(--crema-texto); stroke-width: 1.4; stroke-linecap: round; opacity: .7; pointer-events: none; transition: opacity .3s; }
+.buscador input {
+  width: 100%; padding: 12px 46px;
+  border: 1px solid rgba(246, 239, 230, .32); border-radius: 999px;
+  background: rgba(246, 239, 230, .05); color: var(--crema-texto);
+  font-family: var(--sans); font-size: 16px; letter-spacing: .02em;
+  transition: border-color .3s, background .3s, box-shadow .3s;
+  -webkit-appearance: none; appearance: none;
+}
+.buscador input::placeholder { color: rgba(246, 239, 230, .55); font-family: var(--serif); font-style: italic; font-size: 18px; letter-spacing: .03em; }
+.buscador input::-webkit-search-cancel-button { display: none; }
+.buscador input:focus { outline: none; border-color: rgba(246, 239, 230, .75); background: rgba(246, 239, 230, .09); box-shadow: 0 0 0 4px rgba(246, 239, 230, .07), 0 8px 24px rgba(0, 0, 0, .18); }
+.buscador input:focus ~ svg, .buscador:focus-within svg { opacity: 1; }
+.buscador button { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: 1px solid rgba(246, 239, 230, .3); border-radius: 50%; background: none; color: var(--crema-texto); font-size: 15px; line-height: 1; opacity: .8; transition: opacity .2s, background .2s; }
+.buscador button:hover { opacity: 1; background: rgba(246, 239, 230, .1); }
+.buscador button[hidden] { display: none; }
+/* Una línea finita con un rombito, como una costura, separa el buscador de las categorías. */
+.buscador::after { content: "◆"; position: absolute; left: 50%; bottom: -19px; transform: translateX(-50%); font-size: 6px; color: rgba(246, 239, 230, .4); }

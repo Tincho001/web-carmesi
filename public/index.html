@@ -64,10 +64,15 @@
 
     <section class="catalogo" id="productos">
       <h2 class="etiqueta" id="etiquetaProductos">Productos</h2>
+      <div class="buscador" role="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4.2-4.2"/></svg>
+        <input type="search" id="buscar" placeholder="Buscá por modelo o color…" aria-label="Buscar productos" autocomplete="off" enterkeyhint="search">
+        <button type="button" id="buscarBorrar" aria-label="Borrar la búsqueda" hidden>×</button>
+      </div>
       <nav class="filtros" id="filtros" aria-label="Categorías"></nav>
       <div class="grilla" id="grilla"><!--GRILLA--></div>
       <div class="vacio" id="vacio" hidden>
-        <p>Pronto vas a encontrar acá esta categoría.</p>
+        <p id="vacioTexto">Pronto vas a encontrar acá esta categoría.</p>
         <a class="boton boton--claro" id="waVacio" target="_blank" rel="noopener">Consultanos por WhatsApp</a>
       </div>
     </section>
