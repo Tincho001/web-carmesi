@@ -92,10 +92,15 @@
     <!-- Más -->
     <section class="pantalla" id="pMas" data-pantalla="mas" hidden>
       <div class="quien" id="quien"></div>
+      <button type="button" class="publicar-boton" id="menuPublicar" hidden>
+        <span class="publicar-boton__icono" aria-hidden="true">🚀</span>
+        <span><b>Publicar web</b><small>Abrí tu tienda online para todas tus clientas</small></span>
+      </button>
       <div class="menu">
         <button type="button" class="fila fila--guia" id="menuGuia"><span aria-hidden="true">📖</span> Cómo usar el panel</button>
         <button type="button" class="fila" id="menuApp"><span aria-hidden="true">📲</span> Poner el panel en el celu</button>
         <button type="button" class="fila" id="menuNovedades"><span aria-hidden="true">📬</span> Noticias y mejoras <em class="fila__badge" id="novedadesN" hidden></em></button>
+        <button type="button" class="fila" id="menuPublicarPrueba" data-solo="super"><span aria-hidden="true">🧪</span> Probar "Publicar web" (simulación)</button>
         <button type="button" class="fila" id="menuNoticia" data-solo="super"><span aria-hidden="true">📣</span> Mandar una noticia al panel</button>
         <button type="button" class="fila" id="menuCambios" data-solo="admin" hidden><span aria-hidden="true">✏️</span> Realizar cambios en web <em class="fila__nota" id="cambiosQuedan"></em></button>
         <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
@@ -436,6 +441,47 @@
       <div class="dlg__pie"><button type="submit" class="btn btn--bordo">Enviar pedido</button></div>
       <div id="misCambios"></div>
     </form>
+  </dialog>
+
+  <!-- Publicar la web: confirmar → carga con % → felicitaciones -->
+  <dialog class="dlg publicar" id="dlgPublicar">
+    <p class="publicar__sim" id="publicarSim" hidden>🧪 Simulación: no se publica nada de verdad</p>
+    <img class="publicar__logo" src="assets/img/monograma-bordo.png" alt="" width="595" height="530">
+    <h2>¿Publicamos tu web?</h2>
+    <p>Al publicarla, <b>carmesibags.com.ar</b> queda <b>abierta para todo el mundo</b>: cualquiera va a poder ver tus productos, armar su pedido y escribirte por WhatsApp.</p>
+    <ul class="publicar__lista">
+      <li>👜 Revisaste tus productos, fotos y precios</li>
+      <li>📝 Revisaste el texto de la tienda y las preguntas frecuentes</li>
+      <li>💬 Tu WhatsApp e Instagram están bien</li>
+    </ul>
+    <p class="ayuda">Después la seguís manejando igual desde el panel: todo lo que cambies se ve al instante.</p>
+    <button type="button" class="btn btn--bordo btn--ancho" id="publicarSi">Sí, publicar mi web 🚀</button>
+    <button type="button" class="btn btn--borde btn--ancho" data-cerrar>Todavía no</button>
+  </dialog>
+
+  <dialog class="dlg publicando" id="dlgPublicando" data-fijo>
+    <div class="publicando__logo"><img src="assets/img/monograma-bordo.png" alt="" width="595" height="530"></div>
+    <p class="publicando__num"><span id="publicandoNum">0</span>%</p>
+    <div class="publicando__barra"><span id="publicandoBarra"></span></div>
+    <p class="publicando__txt" id="publicandoTxt">Preparando todo…</p>
+  </dialog>
+
+  <dialog class="dlg felicitaciones" id="dlgFelicitaciones">
+    <canvas class="papelitos" id="papelitos" aria-hidden="true"></canvas>
+    <p class="felicitaciones__sim" id="felicitacionesSim" hidden>🧪 Simulación</p>
+    <p class="felicitaciones__emoji" aria-hidden="true">🎉</p>
+    <p class="felicitaciones__pre">Carmesí Bags ya está online</p>
+    <h2 id="felicitacionesTitulo">¡Felicitaciones!</h2>
+    <div class="felicitaciones__texto">
+      <p>Hoy tu tienda abrió sus puertas. Cada cartera que elegiste, cada foto que sacaste y cada detalle que cuidaste ya se ven en <b>carmesibags.com.ar</b>.</p>
+      <p>Detrás de esta web hay <b>mucho esfuerzo, dedicación y amor</b> por lo que hacés… y se nota 💛</p>
+      <p>Desde hoy tus clientas pueden ver todo tu catálogo, armar su pedido y escribirte con un toque, de día o de noche.</p>
+      <p>Esto recién empieza: <b>¡que vengan muchas ventas!</b> ✨</p>
+    </div>
+    <p class="felicitaciones__firma">Martín · Pixel Cuyo</p>
+    <a class="btn btn--bordo btn--ancho" id="felicitacionesVer" href="/" target="_blank" rel="noopener">🌐 Ver mi web</a>
+    <button type="button" class="btn btn--borde btn--ancho" id="felicitacionesCopiar">🔗 Copiar el link para compartir</button>
+    <button type="button" class="felicitaciones__cerrar" data-cerrar>¡Gracias! 💛</button>
   </dialog>
 
   <!-- Mandar una noticia al panel (Pixel Cuyo) -->

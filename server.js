@@ -1010,6 +1010,16 @@ async function handleApi(req, res, url) {
   }
 
   // ----- modo mantenimiento (solo Pixel Cuyo): la web muestra un cartel, el panel sigue andando -----
+  // Publicar la web: lo hace la dueña (o una administradora) una sola vez, desde su panel.
+  if (route === 'POST /api/publicar') {
+    requireRole(user.role === 'admin' || can.super(user), 'Solo las administradoras pueden publicar la web');
+    if (user._real) throw new HttpError(403, 'Estás viendo como otra persona: para probar usá la simulación de tu panel');
+    if (!(await inMaintenance())) return send(res, 200, { ok: true, yaEstaba: true });
+    await setMeta('maintenance', '0');
+    await logActivity('site', null, 'la web', user, 'update', ['🚀 web publicada: ya la ven todas las clientas']);
+    return send(res, 200, { ok: true });
+  }
+
   if (route === 'PUT /api/maintenance') {
     requireRole(can.super(user), 'Solo Pixel Cuyo puede poner la web en mantenimiento');
     const on = !!(await readJson(req)).on;
@@ -1966,6 +1976,7 @@ async function handle(req, res) {
       return send(res, 200, await sitemapXml(), { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
     }
     // Vista previa de la tienda: se ve aunque la portada esté en construcción (Google no la indexa).
+    if (url.pathname === '/inicio' && !(await inMaintenance())) return send(res, 302, '', { Location: '/' });
     if (url.pathname === '/inicio') {
       return send(res, 200, await renderTienda(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex, nofollow' });
     }

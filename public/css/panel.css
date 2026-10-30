@@ -588,3 +588,49 @@ body.viendo-como .cabeza { top: 38px; }
 .anuncio-foto { display: flex; gap: 12px; align-items: center; }
 .anuncio-foto img { width: 72px; height: 90px; border-radius: 10px; object-fit: cover; background: var(--crema); }
 .anuncio-foto__botones { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+
+/* ---------- Publicar la web ---------- */
+.publicar-boton {
+  display: flex; align-items: center; gap: 14px; width: 100%; margin: 0 0 14px; padding: 16px 18px;
+  border: 0; border-radius: 18px; text-align: left; font: inherit; color: var(--crema);
+  background: linear-gradient(135deg, #7a2430, var(--bordo) 60%, #47121a);
+  box-shadow: 0 10px 24px rgba(94, 26, 34, .28); cursor: pointer; position: relative; overflow: hidden;
+}
+.publicar-boton[hidden] { display: none; }
+.publicar-boton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .16) 50%, transparent 70%); transform: translateX(-100%); animation: brillo 3.2s ease-in-out 1s infinite; }
+@keyframes brillo { 60%, 100% { transform: translateX(100%); } }
+.publicar-boton__icono { font-size: 30px; }
+.publicar-boton b { display: block; font-family: var(--serif); font-size: 24px; font-weight: 600; letter-spacing: .02em; }
+.publicar-boton small { font-size: 12.5px; opacity: .85; }
+
+.publicar { width: min(420px, calc(100% - 28px)); text-align: center; }
+.publicar[open] { display: grid; gap: 10px; }
+.publicar__sim, .felicitaciones__sim { margin: 0; padding: 6px 10px; border-radius: 99px; background: #fbd46d; color: #4a3200; font-size: 12px; font-weight: 600; justify-self: center; }
+.publicar__logo { width: 64px; height: auto; margin: 4px auto 0; }
+.publicar h2 { margin: 0; font-family: var(--serif); font-size: 28px; font-weight: 600; color: var(--bordo); }
+.publicar p { margin: 0; font-size: 14px; line-height: 1.55; }
+.publicar__lista { list-style: none; margin: 4px 0; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1px solid var(--linea); display: grid; gap: 8px; text-align: left; font-size: 13.5px; }
+
+.publicando { width: min(340px, calc(100% - 40px)); padding: 30px 26px; text-align: center; }
+.publicando[open] { display: grid; gap: 14px; justify-items: center; }
+.publicando__logo { width: 84px; height: 84px; display: grid; place-items: center; border-radius: 50%; background: #fff; box-shadow: 0 0 0 0 rgba(94, 26, 34, .25); animation: latir 1.6s ease-in-out infinite; }
+.publicando__logo img { width: 56px; height: auto; }
+@keyframes latir { 0%, 100% { box-shadow: 0 0 0 0 rgba(94, 26, 34, .22); transform: scale(1); } 50% { box-shadow: 0 0 0 14px rgba(94, 26, 34, 0); transform: scale(1.04); } }
+.publicando__num { margin: 0; font-family: var(--serif); font-size: 52px; font-weight: 600; line-height: 1; color: var(--bordo); font-variant-numeric: tabular-nums; }
+.publicando__barra { width: 100%; height: 8px; border-radius: 99px; background: #eadfd4; overflow: hidden; }
+.publicando__barra span { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, var(--bordo), #b14a57, #d4af7a); transition: width .12s linear; }
+.publicando__txt { margin: 0; min-height: 20px; font-size: 14px; color: var(--gris); }
+
+.felicitaciones { width: min(440px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow-y: auto; text-align: center; background: linear-gradient(180deg, #fff9f2, var(--crema-clara) 40%); }
+.felicitaciones[open] { display: grid; gap: 10px; }
+.papelitos { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2; }
+.felicitaciones > :not(.papelitos) { position: relative; z-index: 1; }
+.felicitaciones__emoji { margin: 6px 0 0; font-size: 46px; line-height: 1; animation: saltito 1.2s ease .2s both; }
+@keyframes saltito { 0% { transform: scale(.3) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.15) rotate(6deg); opacity: 1; } 100% { transform: none; } }
+.felicitaciones__pre { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .26em; text-transform: uppercase; color: var(--rojo, #8b1925); }
+.felicitaciones h2 { margin: 0; font-family: var(--serif); font-size: 34px; font-weight: 600; line-height: 1.1; color: var(--bordo); }
+.felicitaciones__texto { display: grid; gap: 10px; margin: 4px 0; padding: 16px 16px; border-radius: 16px; background: #fff; border: 1px solid #ecd9c6; text-align: left; }
+.felicitaciones__texto p { margin: 0; font-size: 14.5px; line-height: 1.6; }
+.felicitaciones__firma { margin: 0; font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--gris); }
+.felicitaciones__cerrar { margin: 2px auto 0; padding: 8px 14px; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 600; color: var(--bordo); }
+@media (prefers-reduced-motion: reduce) { .publicar-boton::after, .publicando__logo, .felicitaciones__emoji { animation: none; } }

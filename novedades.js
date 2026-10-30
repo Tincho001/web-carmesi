@@ -216,4 +216,16 @@ Ahí también te va a escribir Martín cuando haya arreglos o cosas para contart
 - **➖ Barrita:** una línea finita arriba de todo, para algo corto. Ej: "🎁 Envío gratis este finde".
 - Poné las fechas **desde / hasta** y aparece y se va solo 😉`,
   },
+  {
+    id: 21,
+    fecha: '2026-10-30',
+    icono: '🚀',
+    titulo: 'Cuando esté todo listo, publicá tu web',
+    perm: '',
+    rol: 'admin',
+    texto: `Arriba de todo en **⋯ Más** tenés el botón **🚀 Publicar web**.
+- Antes, revisá tus productos, precios, textos y preguntas frecuentes.
+- Cuando lo toques, tu web queda **abierta para todas tus clientas** en carmesibags.com.ar.
+- Después la seguís manejando igual desde el panel 💛`,
+  },
 ];

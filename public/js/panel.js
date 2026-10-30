@@ -109,6 +109,8 @@
 
   function pintarObra(obra) {
     enObra = obra;
+    // "Publicar web" arriba de todo en Más: solo para las administradoras, mientras está en construcción.
+    $('menuPublicar').hidden = !(obra && yo && yo.role === 'admin');
     $('cartelObra').hidden = !obra;
     $('menuObra').innerHTML = obra
       ? '<span aria-hidden="true">🚀</span> Abrir la web al público'
@@ -1883,9 +1885,117 @@
     } catch (err) { avisar(err.message); }
   });
 
-  // Cerrar diálogos con la X o tocando afuera
+  // ---------- 🚀 publicar la web: confirmar → carga con % → felicitaciones ----------
+  let simulacion = false;
+  const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+  function abrirPublicar(esSimulacion) {
+    simulacion = esSimulacion;
+    $('publicarSim').hidden = !simulacion;
+    $('dlgPublicar').showModal();
+  }
+  $('menuPublicar').addEventListener('click', () => abrirPublicar(false));
+  $('menuPublicarPrueba').addEventListener('click', () => abrirPublicar(true));
+  // La carga no se cierra con Esc ni tocando afuera.
+  $('dlgPublicando').addEventListener('cancel', (e) => e.preventDefault());
+
+  const PASOS_CARGA = [
+    [0, 'Revisando tus productos…'],
+    [22, 'Preparando las fotos…'],
+    [45, 'Ordenando las categorías…'],
+    [63, 'Abriendo las puertas de la tienda…'],
+    [82, 'Avisándole a Google…'],
+    [97, '¡Listo! ✨'],
+  ];
+  // Cuenta de 0 a 100 en unos segundos (y espera a que el servidor confirme antes de llegar al final).
+  async function cargar100(trabajo) {
+    const total = 5200;
+    const inicio = performance.now();
+    let hecho = false, error = null;
+    trabajo.then(() => { hecho = true; }, (e) => { error = e; hecho = true; });
+    for (;;) {
+      if (error) throw error;
+      const t = Math.min(1, (performance.now() - inicio) / total);
+      let p = Math.round(100 * (1 - Math.pow(1 - t, 2.2)));
+      if (!hecho) p = Math.min(p, 96);
+      $('publicandoNum').textContent = p;
+      $('publicandoBarra').style.width = p + '%';
+      $('publicandoTxt').textContent = PASOS_CARGA.filter(([desde]) => p >= desde).pop()[1];
+      if (p >= 100) return;
+      await espera(40);
+    }
+  }
+  $('publicarSi').addEventListener('click', async () => {
+    $('dlgPublicar').close();
+    $('publicandoNum').textContent = '0';
+    $('publicandoBarra').style.width = '0%';
+    $('dlgPublicando').showModal();
+    try {
+      await cargar100(simulacion ? espera(1500) : api('POST', '/api/publicar'));
+      await espera(500);
+      $('dlgPublicando').close();
+      if (!simulacion) pintarObra(false);
+      mostrarFelicitaciones();
+    } catch (err) {
+      $('dlgPublicando').close();
+      avisar(err.message);
+    }
+  });
+
+  function mostrarFelicitaciones() {
+    const nombre = simulacion ? 'Valen' : (yo.alias || yo.username).split(' ')[0];
+    $('felicitacionesTitulo').textContent = `¡Felicitaciones, ${nombre}!`;
+    $('felicitacionesSim').hidden = !simulacion;
+    $('dlgFelicitaciones').showModal();
+    $('dlgFelicitaciones').scrollTop = 0;
+    papelitos();
+  }
+  $('felicitacionesCopiar').addEventListener('click', async () => {
+    const ok = await copiarTexto('https://carmesibags.com.ar');
+    avisar(ok ? 'Link copiado ✓ ¡Compartilo en tus redes!' : 'carmesibags.com.ar');
+  });
+
+  // Papelitos de festejo en los colores de Carmesí (si el celu pide menos movimiento, no se tiran).
+  function papelitos() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const c = $('papelitos');
+    const ctx = c.getContext('2d');
+    const w = c.width = window.innerWidth;
+    const h = c.height = window.innerHeight;
+    const colores = ['#5e1a22', '#8b1925', '#f3ebe2', '#d4af7a', '#c9a24d', '#e8c9c0'];
+    const piezas = Array.from({ length: 140 }, () => ({
+      x: Math.random() * w, y: -20 - Math.random() * h * 0.6,
+      vx: (Math.random() - 0.5) * 1.6, vy: 1.6 + Math.random() * 2.6,
+      r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.2,
+      t: 5 + Math.random() * 6, color: colores[Math.floor(Math.random() * colores.length)],
+      forma: Math.random() < 0.3 ? 'circulo' : 'tira',
+    }));
+    const inicio = performance.now();
+    (function cuadro(ahora) {
+      const pasado = ahora - inicio;
+      ctx.clearRect(0, 0, w, h);
+      ctx.globalAlpha = pasado > 4500 ? Math.max(0, 1 - (pasado - 4500) / 1500) : 1;
+      // Por tiempo (no por cuadro), así cae igual en un celu lento.
+      const k = pasado / 16;
+      for (const p of piezas) {
+        const x = p.x + p.vx * k + Math.sin(pasado / 400 + p.r) * 12;
+        const y = p.y + p.vy * k;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(p.r + p.vr * k);
+        ctx.fillStyle = p.color;
+        if (p.forma === 'circulo') { ctx.beginPath(); ctx.arc(0, 0, p.t / 2.4, 0, Math.PI * 2); ctx.fill(); }
+        else ctx.fillRect(-p.t / 2, -p.t / 5, p.t, p.t / 2.5);
+        ctx.restore();
+      }
+      if (pasado < 6000 && $('dlgFelicitaciones').open) requestAnimationFrame(cuadro);
+      else ctx.clearRect(0, 0, w, h);
+    })(inicio);
+  }
+
+  // Cerrar diálogos con la X o tocando afuera (menos los que tienen data-fijo, como la carga)
   document.querySelectorAll('dialog').forEach((d) => {
     d.addEventListener('click', (e) => {
+      if (d.hasAttribute('data-fijo')) return;
       if (e.target === d || e.target.closest('[data-cerrar]')) d.close();
     });
   });
