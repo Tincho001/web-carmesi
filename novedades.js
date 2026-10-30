@@ -238,7 +238,7 @@ Ahí también te va a escribir Martín cuando haya arreglos o cosas para contart
     perm: '',
     texto: `Te pedimos disculpas: en algunos textos de la web y del panel hablábamos solo de "clientas". Ya lo corregimos, porque **Carmesí es para todos**: también hay quienes buscan un set matero, un regalo o algo lindo para alguien especial 💛
 - En la web ahora dice **"carteras y bolsos en Mendoza"**.
-- En el panel, donde decía "clientas", ahora dice **"clientes"** o **"personas"**.
+- En el panel, donde decía "clientas", ahora dice **"clientes"** o **"personas"**; y "administradoras" ahora es **"administradores"**, porque el equipo también puede crecer con cualquiera.
 💡 Cuando escribas descripciones o anuncios, pensá que te puede leer cualquiera: un "ideal para regalar" suma un montón.`,
   },
 ];

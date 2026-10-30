@@ -62,7 +62,7 @@
   });
   $('loginAyuda').href = `https://wa.me/5492617206192?text=${encodeURIComponent('¡Hola Martín! No puedo entrar al panel de Carmesí, ¿me ayudás con la contraseña?')}`;
 
-  const ROL_NOMBRE = { super: 'Pixel Cuyo (control total)', admin: 'Administradora', vendedor: 'Vendedor/a' };
+  const ROL_NOMBRE = { super: 'Pixel Cuyo (control total)', admin: 'Administrador/a', vendedor: 'Vendedor/a' };
   // Lo que puede hacer quien entró: lo manda el servidor según los permisos de su nivel.
   let permisos = {};
   const puede = {
@@ -109,7 +109,7 @@
 
   function pintarObra(obra) {
     enObra = obra;
-    // "Publicar web" arriba de todo en Más: solo para las administradoras, mientras está en construcción.
+    // "Publicar web" arriba de todo en Más: solo para los administradores, mientras está en construcción.
     $('menuPublicar').hidden = !(obra && yo && yo.role === 'admin');
     $('cartelObra').hidden = !obra;
     $('menuObra').innerHTML = obra
@@ -360,7 +360,7 @@
     if (misPasos().every((p) => pasosHechos.includes(p.id))) avisar('¡Listo! 🎉 Ya tenés todo para arrancar');
   }
 
-  // ---------- ✏️ cambios en la web: las administradoras piden (3 por mes), Pixel Cuyo lee ----------
+  // ---------- ✏️ cambios en la web: los administradores piden (3 por mes), Pixel Cuyo lee ----------
   const ESTADO_CAMBIO = { nuevo: '📨 Recibido', visto: '👀 Visto por Martín', hecho: '✅ Hecho' };
   const fechaCorta = (ms) => new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
   let cambiosMios = null;
@@ -632,7 +632,7 @@
     } else revisarCuota();
   }
 
-  // ---------- 💳 aviso de la cuota (solo administradoras, una vez por día) ----------
+  // ---------- 💳 aviso de la cuota (solo administradores, una vez por día) ----------
   let cuotaDePrueba = false;
   function mostrarCuota(c) {
     const cuando = c.faltan === 0 ? '<b>hoy</b>' : c.faltan === 1 ? '<b>mañana</b>' : `en <b>${c.faltan} días</b>`;
@@ -733,7 +733,7 @@
 
   // ---------- 📣 noticias que escribe Pixel Cuyo ----------
   let vistaPrevia = false;
-  const PARA = { todos: 'Todos', admin: 'Administradoras', vendedor: 'Vendedores' };
+  const PARA = { todos: 'Todos', admin: 'Administradores', vendedor: 'Vendedores' };
   async function pintarNoticiasEnviadas() {
     const { noticias } = await api('GET', '/api/noticias');
     $('listaNoticias').innerHTML = noticias.map((n) => `

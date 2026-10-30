@@ -376,7 +376,7 @@
     <p class="ayuda">👀 veces que abrieron el producto · 🛒 lo agregaron al pedido · 💬 consultaron por WhatsApp · 📤 estaba en un pedido enviado. No cuenta lo que se mira con el panel abierto.</p>
   </dialog>
 
-  <!-- Aviso de la cuota (solo administradoras) -->
+  <!-- Aviso de la cuota (solo administradores) -->
   <dialog class="dlg cuota" id="dlgCuota">
     <p class="cuota__icono" aria-hidden="true">💳</p>
     <h2 id="cuotaTitulo"></h2>
@@ -402,7 +402,7 @@
         <h2>💳 Aviso de la cuota</h2>
         <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
       </div>
-      <p class="ayuda">Lo ven solo las administradoras (Valentina y las de su rango), no los vendedores. Sale una vez por día, desde unos días antes hasta el vencimiento.</p>
+      <p class="ayuda">Lo ven solo los administradores (Valentina y quien tenga su mismo rango), no los vendedores. Sale una vez por día, desde unos días antes hasta el vencimiento.</p>
       <label class="switch"><input type="checkbox" name="activo"><span></span> Aviso activado</label>
       <div class="dos">
         <label>Vence el día <input name="dia" type="number" min="1" max="28" inputmode="numeric" required></label>
@@ -425,7 +425,7 @@
     </form>
   </dialog>
 
-  <!-- Pedir cambios en la web (administradoras) -->
+  <!-- Pedir cambios en la web (administradores) -->
   <dialog class="dlg dlg--hoja" id="dlgCambios">
     <form id="formCambios">
       <div class="dlg__cabeza">
@@ -501,7 +501,7 @@
         <label>Para
           <select name="para">
             <option value="todos">Todos</option>
-            <option value="admin">Solo administradoras</option>
+            <option value="admin">Solo administradores</option>
             <option value="vendedor">Solo vendedores</option>
           </select>
         </label>
@@ -537,7 +537,7 @@
       <h2>📬 Cambios sugeridos</h2>
       <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
     </div>
-    <p class="ayuda">Lo que te pidieron cambiar en la web. Ellas ven si está <b>recibido</b>, <b>visto</b> o <b>hecho</b>.</p>
+    <p class="ayuda">Lo que te pidieron cambiar en la web. Ven si está <b>recibido</b>, <b>visto</b> o <b>hecho</b>.</p>
     <div class="cupo-mes" id="cupoMes"></div>
     <button type="button" class="btn btn--borde btn--ancho" id="copiarPendientes" hidden>📋 Copiar todos los pendientes</button>
     <ul class="cambios" id="listaCambios"></ul>

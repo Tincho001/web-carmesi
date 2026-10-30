@@ -351,7 +351,7 @@ async function initDb() {
     read_at INTEGER,
     PRIMARY KEY (user_id, news_key)
   )`);
-  // Cambios que las administradoras le piden a Pixel Cuyo (hasta 3 por mes entre todas).
+  // Cambios que los administradores le piden a Pixel Cuyo (hasta 3 por mes entre todas).
   await db.execute(`CREATE TABLE IF NOT EXISTS change_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -522,7 +522,7 @@ async function getFaq() {
   return DEFAULT_FAQ;
 }
 
-// Cuota mensual de la web (la cobra Pixel Cuyo): aviso a las administradoras unos días antes del vencimiento.
+// Cuota mensual de la web (la cobra Pixel Cuyo): aviso a los administradores unos días antes del vencimiento.
 const DEFAULT_CUOTA = { activo: true, dia: 28, aviso: 5, monto: '', alias: '', titular: '' };
 async function getCuota() {
   let saved = {};
@@ -560,7 +560,7 @@ const STAT_KINDS = ['vista', 'agregado', 'whatsapp', 'compartir', 'pedido'];
 const CAMBIOS_POR_MES = 3;
 
 // Todas las noticias que le tocan a un usuario, con su estado (ya le saltó / ya la leyó), de la más vieja a la más nueva.
-const PARA_NOTICIA = { todos: 'Todos', admin: 'Solo administradoras', vendedor: 'Solo vendedores' };
+const PARA_NOTICIA = { todos: 'Todos', admin: 'Solo administradores', vendedor: 'Solo vendedores' };
 async function noticiasDe(user) {
   const enObra = await inMaintenance();
   const estado = new Map((await db.execute({ sql: 'SELECT * FROM news_state WHERE user_id = ?', args: [user.id] })).rows.map((r) => [r.news_key, r]));
@@ -1018,9 +1018,9 @@ async function handleApi(req, res, url) {
   }
 
   // ----- modo mantenimiento (solo Pixel Cuyo): la web muestra un cartel, el panel sigue andando -----
-  // Publicar la web: lo hace la dueña (o una administradora) una sola vez, desde su panel.
+  // Publicar la web: lo hace la dueña (o alguien de administración) una sola vez, desde su panel.
   if (route === 'POST /api/publicar') {
-    requireRole(user.role === 'admin' || can.super(user), 'Solo las administradoras pueden publicar la web');
+    requireRole(user.role === 'admin' || can.super(user), 'Solo los administradores pueden publicar la web');
     if (user._real) throw new HttpError(403, 'Estás viendo como otra persona: para probar usá la simulación de tu panel');
     if (!(await inMaintenance())) return send(res, 200, { ok: true, yaEstaba: true });
     await setMeta('maintenance', '0');
@@ -1037,7 +1037,7 @@ async function handleApi(req, res, url) {
   }
 
   // ----- datos del negocio (WhatsApp e Instagram) -----
-  // Aviso de la cuota: solo para administradoras (no vendedores ni Pixel Cuyo), una vez por día.
+  // Aviso de la cuota: solo para administradores (no vendedores ni Pixel Cuyo), una vez por día.
   if (route === 'GET /api/cuota') {
     const c = await getCuota();
     const { toca, faltan } = cuotaHoy(c);
@@ -1072,19 +1072,19 @@ async function handleApi(req, res, url) {
     return send(res, 200, c);
   }
 
-  // ----- cambios en la web (las administradoras piden, Pixel Cuyo lee) -----
+  // ----- cambios en la web (los administradores piden, Pixel Cuyo lee) -----
   if (route === 'GET /api/cambios') {
     if (can.super(user)) {
       const r = await db.execute('SELECT * FROM change_requests ORDER BY created_at DESC LIMIT 300');
       const usados = await cambiosUsados();
       return send(res, 200, { cambios: r.rows.map(cambioPublico), nuevos: r.rows.filter((c) => c.status === 'nuevo').length, usados, limite: CAMBIOS_POR_MES, mes: mesAR() });
     }
-    requireRole(user.role === 'admin', 'Solo las administradoras pueden pedir cambios');
+    requireRole(user.role === 'admin', 'Solo los administradores pueden pedir cambios');
     const r = await db.execute({ sql: 'SELECT * FROM change_requests WHERE month = ? ORDER BY created_at', args: [mesAR()] });
     return send(res, 200, { cambios: r.rows.map(cambioPublico), limite: CAMBIOS_POR_MES, quedan: Math.max(0, CAMBIOS_POR_MES - (await cambiosUsados())) });
   }
   if (route === 'POST /api/cambios') {
-    requireRole(user.role === 'admin', 'Solo las administradoras pueden pedir cambios');
+    requireRole(user.role === 'admin', 'Solo los administradores pueden pedir cambios');
     const texto = cleanDescription((await readJson(req)).texto).slice(0, 2000);
     if (texto.length < 5) throw new HttpError(400, 'Contanos un poquito más qué cambio querés');
     const usados = await cambiosUsados();
