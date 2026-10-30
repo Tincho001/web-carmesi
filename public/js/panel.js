@@ -582,13 +582,14 @@
         <span class="novedad__icono" aria-hidden="true">${escapar(n.icono)}</span>
         <div>
           <strong>${escapar(n.titulo.replace(/\{nombre\}/g, yo.alias || yo.username))}</strong>
-          <small>${fechaNoticia(n.fecha)}${n.deMartin ? ' · de Martín' : ''}${n.leido ? '' : ' · <em>Nuevo</em>'}</small>
+          <small>${fechaNoticia(n.fecha)}${n.deMartin && !puede.super() ? ' · de Martín' : ''}${n.leido ? '' : ' · <em>Nuevo</em>'}</small>
+          ${puede.super() && n.para ? `<span class="novedad__para">👥 ${escapar(n.para)}</span>` : ''}
           ${textoNovedad(n.texto)}
         </div>
       </li>`;
   // modo "nuevas": la ventanita al entrar; "todas": la bandeja completa desde Más.
   function mostrarNovedades(modo, lista) {
-    const primeraVez = modo === 'nuevas' && novedades.primeraVez && !vistaPrevia;
+    const primeraVez = modo === 'nuevas' && novedades.primeraVez && !vistaPrevia && !puede.super();
     // La primera vez, en orden (la bienvenida arriba); después, lo más nuevo arriba.
     lista = primeraVez ? lista.slice() : lista.slice().reverse();
     // Las fijadas, siempre arriba de todo.
@@ -605,7 +606,7 @@
     $('dlgNovedades').showModal();
     return true;
   }
-  const sinLeer = () => (puede.super() ? [] : novedades.items.filter((n) => !n.leido));
+  const sinLeer = () => novedades.items.filter((n) => !n.leido);
   function pintarNovedadesN() {
     const n = sinLeer().length;
     $('novedadesN').hidden = !n;
@@ -622,10 +623,10 @@
   async function revisarNovedades() {
     try { novedades = await api('GET', '/api/novedades'); } catch (_) { return revisarCuota(); }
     pintarNovedadesN();
-    // A Martín (Pixel Cuyo) no le salta sola: las ve desde Más.
+    // A Martín también le salta, así ve lo mismo que el equipo sin entrar "como" otra persona.
     // Cada noticia salta una sola vez; el aviso de la cuota sale después, cuando cierra la ventanita.
     const nuevas = novedades.items.filter((n) => !n.popup && !n.leido);
-    if (!puede.super() && mostrarNovedades('nuevas', nuevas)) {
+    if (mostrarNovedades('nuevas', nuevas)) {
       marcarNoticias(nuevas, 'popup');
       $('dlgNovedades').addEventListener('close', revisarCuota, { once: true });
     } else revisarCuota();
@@ -722,7 +723,7 @@
   // En la campanita: las noticias sin leer arriba; al abrirla quedan leídas.
   function pintarBandeja() {
     const lista = sinLeer().slice().reverse();
-    const fijadas = puede.super() ? [] : novedades.items.filter((n) => n.fijada);
+    const fijadas = novedades.items.filter((n) => n.fijada);
     const mostrar = [...fijadas, ...lista.filter((n) => !n.fijada)];
     $('bandeja').hidden = !mostrar.length;
     $('bandejaLista').innerHTML = mostrar.map(tarjetaNoticia).join('');
