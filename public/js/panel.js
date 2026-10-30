@@ -577,7 +577,8 @@
   }
   const fechaNoticia = (ms) => new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
   const tarjetaNoticia = (n) => `
-      <li class="novedad${n.leido ? '' : ' novedad--nueva'}">
+      <li class="novedad${n.leido ? '' : ' novedad--nueva'}${n.fijada ? ' novedad--fijada' : ''}">
+        ${n.fijada ? '<span class="novedad__pin">📌 Fijada</span>' : ''}
         <span class="novedad__icono" aria-hidden="true">${escapar(n.icono)}</span>
         <div>
           <strong>${escapar(n.titulo.replace(/\{nombre\}/g, yo.alias || yo.username))}</strong>
@@ -590,6 +591,8 @@
     const primeraVez = modo === 'nuevas' && novedades.primeraVez && !vistaPrevia;
     // La primera vez, en orden (la bienvenida arriba); después, lo más nuevo arriba.
     lista = primeraVez ? lista.slice() : lista.slice().reverse();
+    // Las fijadas, siempre arriba de todo.
+    lista = [...lista.filter((n) => n.fijada), ...lista.filter((n) => !n.fijada)];
     if (!lista.length) return false;
     enVentana = lista;
     leerAlCerrar = modo === 'todas';
@@ -719,8 +722,10 @@
   // En la campanita: las noticias sin leer arriba; al abrirla quedan leídas.
   function pintarBandeja() {
     const lista = sinLeer().slice().reverse();
-    $('bandeja').hidden = !lista.length;
-    $('bandejaLista').innerHTML = lista.map(tarjetaNoticia).join('');
+    const fijadas = puede.super() ? [] : novedades.items.filter((n) => n.fijada);
+    const mostrar = [...fijadas, ...lista.filter((n) => !n.fijada)];
+    $('bandeja').hidden = !mostrar.length;
+    $('bandejaLista').innerHTML = mostrar.map(tarjetaNoticia).join('');
     return lista;
   }
   $('bandejaTodas').addEventListener('click', () => { $('dlgAvisos').close(); $('menuNovedades').click(); });
@@ -821,7 +826,7 @@
           ${a.producto ? `<button type="button" class="btn btn--bordo" data-aviso-producto="${a.producto}">Ver producto</button>` : ''}
           ${a.cambios ? '<button type="button" class="btn btn--bordo" data-aviso-cambios>Ver cambios</button>' : ''}
         </div>
-      </li>`).join('') || (sinLeer().length ? '' : '<li class="vacio">No tenés avisos. 👌</li>');
+      </li>`).join('') || (sinLeer().length || novedades.items.some((n) => n.fijada) ? '' : '<li class="vacio">No tenés avisos. 👌</li>');
   }
   // Se revisa cada media hora mientras el panel está abierto.
   setInterval(() => { if (yo) pintarAvisos(); }, 30 * 60e3);

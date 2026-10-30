@@ -1,7 +1,8 @@
 // Novedades del panel: mensajes para Valentina y su equipo.
 // Cada vez que se suma algo nuevo al panel o a la web, se agrega un mensaje al final con el id siguiente.
 // Al entrar, a cada uno le aparece una ventanita con lo que todavía no leyó.
-// perm: solo lo ven quienes tienen ese permiso (vacío = todos). rol: solo ese rol (ej: 'admin'). {nombre} se cambia por el nombre de quien entra.
+// perm: solo lo ven quienes tienen ese permiso (vacío = todos). rol: solo ese rol (ej: 'admin').
+// fijada: 'hasta-publicar' = queda arriba de todo, con borde llamativo, mientras la web esté en construcción. {nombre} se cambia por el nombre de quien entra.
 // En el texto: **negrita**, y cada renglón que empieza con "- " es un punto de una lista.
 
 module.exports = [
@@ -223,6 +224,7 @@ Ahí también te va a escribir Martín cuando haya arreglos o cosas para contart
     titulo: 'Cuando esté todo listo, publicá tu web',
     perm: '',
     rol: 'admin',
+    fijada: 'hasta-publicar',
     texto: `Arriba de todo en **⋯ Más** tenés el botón **🚀 Publicar web**.
 - Antes, revisá tus productos, precios, textos y preguntas frecuentes.
 - Cuando lo toques, tu web queda **abierta para todo el mundo** en carmesibags.com.ar.

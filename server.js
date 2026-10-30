@@ -561,12 +561,17 @@ const CAMBIOS_POR_MES = 3;
 
 // Todas las noticias que le tocan a un usuario, con su estado (ya le saltó / ya la leyó), de la más vieja a la más nueva.
 async function noticiasDe(user) {
+  const enObra = await inMaintenance();
   const estado = new Map((await db.execute({ sql: 'SELECT * FROM news_state WHERE user_id = ?', args: [user.id] })).rows.map((r) => [r.news_key, r]));
   // Antes de la bandeja, "news_seen" guardaba hasta qué novedad había leído: esas cuentan como leídas.
   const vistoViejo = Number((await getUser(user.id)).news_seen) || 0;
   const desdeArchivo = NOVEDADES
     .filter((n) => (!n.perm || n.perm.split('|').some((k) => can.do(user, k))) && (!n.rol || n.rol === user.role || can.super(user)))
-    .map((n) => ({ key: 'n' + n.id, icono: n.icono, titulo: n.titulo, texto: n.texto, fecha: Date.parse(n.fecha + 'T00:00:00-03:00') + n.id, viejo: n.id <= vistoViejo }));
+    .map((n) => ({
+      key: 'n' + n.id, icono: n.icono, titulo: n.titulo, texto: n.texto, fecha: Date.parse(n.fecha + 'T00:00:00-03:00') + n.id, viejo: n.id <= vistoViejo,
+      // La de "publicar tu web" queda fijada hasta que la web se publique.
+      fijada: n.fijada === 'hasta-publicar' ? enObra : !!n.fijada,
+    }));
   const escritas = (await db.execute('SELECT * FROM panel_news ORDER BY created_at')).rows
     .filter((n) => n.para === 'todos' || n.para === user.role || can.super(user))
     .map((n) => ({ key: 'm' + n.id, icono: n.icono, titulo: n.titulo, texto: n.texto, fecha: n.created_at, deMartin: true }));

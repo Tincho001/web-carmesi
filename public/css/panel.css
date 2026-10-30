@@ -634,3 +634,12 @@ body.viendo-como .cabeza { top: 38px; }
 .felicitaciones__firma { margin: 0; font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--gris); }
 .felicitaciones__cerrar { margin: 2px auto 0; padding: 8px 14px; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 600; color: var(--bordo); }
 @media (prefers-reduced-motion: reduce) { .publicar-boton::after, .publicando__logo, .felicitaciones__emoji { animation: none; } }
+
+/* ---------- Noticia fijada (la de publicar la web) ---------- */
+.novedad--fijada {
+  position: relative; padding-top: 30px;
+  border: 2px solid transparent !important;
+  background: linear-gradient(#fffaf2, #fffaf2) padding-box, linear-gradient(135deg, var(--bordo), #d4af7a, var(--bordo)) border-box !important;
+  box-shadow: 0 8px 22px rgba(94, 26, 34, .16);
+}
+.novedad__pin { position: absolute; top: 8px; right: 10px; padding: 2px 10px; border-radius: 99px; background: var(--bordo); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .03em; }
