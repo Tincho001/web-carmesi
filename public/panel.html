@@ -95,7 +95,8 @@
       <div class="menu">
         <button type="button" class="fila fila--guia" id="menuGuia"><span aria-hidden="true">📖</span> Cómo usar el panel</button>
         <button type="button" class="fila" id="menuApp"><span aria-hidden="true">📲</span> Poner el panel en el celu</button>
-        <button type="button" class="fila" id="menuNovedades"><span aria-hidden="true">🎉</span> Novedades <em class="fila__badge" id="novedadesN" hidden></em></button>
+        <button type="button" class="fila" id="menuNovedades"><span aria-hidden="true">📬</span> Noticias y mejoras <em class="fila__badge" id="novedadesN" hidden></em></button>
+        <button type="button" class="fila" id="menuNoticia" data-solo="super"><span aria-hidden="true">📣</span> Mandar una noticia al panel</button>
         <button type="button" class="fila" id="menuCambios" data-solo="admin" hidden><span aria-hidden="true">✏️</span> Realizar cambios en web <em class="fila__nota" id="cambiosQuedan"></em></button>
         <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
         <button type="button" class="fila" id="menuHistorial" data-perm="activity"><span aria-hidden="true">🕑</span> Historial de cambios</button>
@@ -312,8 +313,13 @@
 
   <dialog class="dlg" id="dlgAvisos">
     <div class="dlg__cabeza">
-      <h2>Avisos</h2>
+      <h2>🔔 Avisos y noticias</h2>
       <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+    </div>
+    <div class="bandeja" id="bandeja" hidden>
+      <h3 class="bandeja__titulo">📬 Noticias y mejoras</h3>
+      <ul class="novedades" id="bandejaLista"></ul>
+      <button type="button" class="bandeja__todas" id="bandejaTodas">Ver todas las noticias</button>
     </div>
     <ul class="avisos" id="listaAvisos"></ul>
     <div class="consulta" id="consultaCaja">
@@ -431,6 +437,43 @@
     </form>
   </dialog>
 
+  <!-- Mandar una noticia al panel (Pixel Cuyo) -->
+  <dialog class="dlg dlg--hoja" id="dlgNoticia">
+    <form id="formNoticia">
+      <div class="dlg__cabeza">
+        <h2>📣 Mandar una noticia</h2>
+        <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
+      </div>
+      <p class="ayuda">Le aparece en una ventanita la próxima vez que entra al panel. Si la cierra sin leer, le queda en la campanita con el número.</p>
+      <div class="dos">
+        <label>Ícono
+          <select name="icono">
+            <option>📣</option><option>✨</option><option>🛠️</option><option>🎉</option><option>💡</option><option>⚠️</option><option>💛</option><option>🆕</option>
+          </select>
+        </label>
+        <label>Para
+          <select name="para">
+            <option value="todos">Todos</option>
+            <option value="admin">Solo administradoras</option>
+            <option value="vendedor">Solo vendedores</option>
+          </select>
+        </label>
+      </div>
+      <label>Título <input name="titulo" maxlength="90" required placeholder="Ej: Arreglamos las fotos de la portada"></label>
+      <label>Mensaje
+        <textarea name="texto" rows="7" maxlength="2000" required placeholder="Contalo en criollo, como se lo dirías por WhatsApp."></textarea>
+        <small class="ayuda">Para <b>negrita</b> poné **así**. Un renglón que empieza con "- " queda como lista. {nombre} se cambia por el nombre de quien lo lee.</small>
+      </label>
+      <p class="error" id="errorNoticia" hidden></p>
+      <div class="dlg__pie textos__pie">
+        <button type="button" class="btn btn--borde" id="noticiaPrevia">👀 Vista previa</button>
+        <button type="submit" class="btn btn--bordo">Enviar</button>
+      </div>
+      <h3 class="subtitulo">Enviadas</h3>
+      <ul class="cambios" id="listaNoticias"></ul>
+    </form>
+  </dialog>
+
   <!-- Ver como (Pixel Cuyo) -->
   <dialog class="dlg" id="dlgVerComo">
     <div class="dlg__cabeza">
@@ -527,7 +570,7 @@
     <p class="ayuda" id="novedadesSub"></p>
     <ul class="novedades" id="listaNovedades"></ul>
     <button type="button" class="btn btn--bordo btn--ancho novedades__ok" id="novedadesOk">¡Entendido! 👍</button>
-    <p class="ayuda novedades__pie">Las podés volver a leer cuando quieras en <b>⋯ Más → 🎉 Novedades</b>.</p>
+    <p class="ayuda novedades__pie" id="novedadesPie">Si la cerrás con la ✕, te queda guardada en la 🔔 campanita. Las podés releer cuando quieras en <b>⋯ Más → 📬 Noticias y mejoras</b>.</p>
   </dialog>
 
   <dialog class="dlg dlg--hoja" id="dlgGuia">
@@ -765,8 +808,9 @@
         </div>
       </details>
       <details class="guia__tema">
-        <summary><span aria-hidden="true">🔔</span>Avisos</summary>
+        <summary><span aria-hidden="true">🔔</span>Avisos y noticias</summary>
         <div class="guia__cuerpo">
+    <p>Cuando hay una <b>noticia o mejora</b> nueva, te aparece una ventanita al entrar. Si la cerrás con la ✕, te queda en la campanita hasta que la abras. Todas las anteriores están en <b>⋯ Más → 📬 Noticias y mejoras</b>.</p>
     <p>Cuando la campanita tiene un <b>número rojo</b>, hay algo para ver. Tocala y te dice qué es (por ejemplo, que se va a borrar historial viejo).</p>
         </div>
       </details>

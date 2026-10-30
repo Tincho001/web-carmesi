@@ -496,7 +496,9 @@
   if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) setTimeout(() => marcarPaso('app'), 3000);
 
   // ---------- 🎉 novedades: al entrar aparece lo que todavía no leyó ----------
-  let novedades = { items: [], visto: 0 };
+  let novedades = { items: [], primeraVez: false };
+  let enVentana = [];        // las que se están mostrando
+  let leerAlCerrar = false;  // "¡Entendido!" = leídas; la ✕ = quedan en la campanita
   // Texto simple: **negrita** y renglones con "- " como lista.
   function textoNovedad(t) {
     const nombre = yo.alias || yo.username;
@@ -509,41 +511,57 @@
     }
     return html + (lista ? '</ul>' : '');
   }
-  function mostrarNovedades(soloNuevas) {
-    const primeraVez = soloNuevas && novedades.visto === 0;
-    // La primera vez, en orden (la bienvenida arriba); después, lo más nuevo arriba.
-    const lista = novedades.items.filter((n) => !soloNuevas || n.id > novedades.visto);
-    if (!primeraVez) lista.reverse();
-    if (!lista.length) return false;
-    const fecha = (f) => new Date(f + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
-    $('novedadesTitulo').textContent = primeraVez ? '👋 ¡Bienvenida/o!' : '🎉 Novedades';
-    $('novedadesSub').textContent = soloNuevas
-      ? (lista.length === 1 ? 'Hay algo nuevo en tu panel:' : `Hay ${lista.length} cosas nuevas en tu panel:`)
-      : 'Todo lo que se fue sumando al panel, lo más nuevo arriba.';
-    $('listaNovedades').innerHTML = lista.map((n) => `
-      <li class="novedad${n.id > novedades.visto ? ' novedad--nueva' : ''}">
-        <span class="novedad__icono" aria-hidden="true">${n.icono}</span>
+  const fechaNoticia = (ms) => new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' });
+  const tarjetaNoticia = (n) => `
+      <li class="novedad${n.leido ? '' : ' novedad--nueva'}">
+        <span class="novedad__icono" aria-hidden="true">${escapar(n.icono)}</span>
         <div>
           <strong>${escapar(n.titulo.replace(/\{nombre\}/g, yo.alias || yo.username))}</strong>
-          <small>${fecha(n.fecha)}${n.id > novedades.visto ? ' · <em>Nuevo</em>' : ''}</small>
+          <small>${fechaNoticia(n.fecha)}${n.deMartin ? ' · de Martín' : ''}${n.leido ? '' : ' · <em>Nuevo</em>'}</small>
           ${textoNovedad(n.texto)}
         </div>
-      </li>`).join('');
+      </li>`;
+  // modo "nuevas": la ventanita al entrar; "todas": la bandeja completa desde Más.
+  function mostrarNovedades(modo, lista) {
+    const primeraVez = modo === 'nuevas' && novedades.primeraVez && !vistaPrevia;
+    // La primera vez, en orden (la bienvenida arriba); después, lo más nuevo arriba.
+    lista = primeraVez ? lista.slice() : lista.slice().reverse();
+    if (!lista.length) return false;
+    enVentana = lista;
+    leerAlCerrar = modo === 'todas';
+    $('novedadesTitulo').textContent = primeraVez ? '👋 ¡Bienvenida/o!' : '📬 Noticias y mejoras';
+    $('novedadesSub').textContent = modo === 'nuevas'
+      ? (lista.length === 1 ? 'Hay algo nuevo en tu panel:' : `Hay ${lista.length} cosas nuevas en tu panel:`)
+      : 'Todo lo que se fue sumando al panel, lo más nuevo arriba.';
+    $('novedadesPie').hidden = modo !== 'nuevas';
+    $('listaNovedades').innerHTML = lista.map(tarjetaNoticia).join('');
     $('dlgNovedades').showModal();
     return true;
   }
+  const sinLeer = () => (puede.super() ? [] : novedades.items.filter((n) => !n.leido));
   function pintarNovedadesN() {
-    const n = novedades.items.filter((x) => x.id > novedades.visto).length;
+    const n = sinLeer().length;
     $('novedadesN').hidden = !n;
     $('novedadesN').textContent = n;
+    pintarCampanita();
+  }
+  async function marcarNoticias(lista, accion) {
+    const keys = lista.filter((n) => (accion === 'leido' ? !n.leido : !n.popup)).map((n) => n.key);
+    if (!keys.length) return;
+    try { await api('POST', '/api/novedades/estado', { keys, accion }); } catch (_) { return; }
+    lista.forEach((n) => { n[accion] = true; if (accion === 'leido') n.popup = true; });
+    pintarNovedadesN();
   }
   async function revisarNovedades() {
     try { novedades = await api('GET', '/api/novedades'); } catch (_) { return revisarCuota(); }
     pintarNovedadesN();
     // A Martín (Pixel Cuyo) no le salta sola: las ve desde Más.
-    // El aviso de la cuota sale después, cuando cierra las novedades.
-    if (!puede.super() && mostrarNovedades(true)) $('dlgNovedades').addEventListener('close', revisarCuota, { once: true });
-    else revisarCuota();
+    // Cada noticia salta una sola vez; el aviso de la cuota sale después, cuando cierra la ventanita.
+    const nuevas = novedades.items.filter((n) => !n.popup && !n.leido);
+    if (!puede.super() && mostrarNovedades('nuevas', nuevas)) {
+      marcarNoticias(nuevas, 'popup');
+      $('dlgNovedades').addEventListener('close', revisarCuota, { once: true });
+    } else revisarCuota();
   }
 
   // ---------- 💳 aviso de la cuota (solo administradoras, una vez por día) ----------
@@ -624,17 +642,64 @@
       mostrarCuota(c);
     } catch (err) { avisar(err.message); }
   });
-  async function marcarLeidas() {
-    if (!novedades.items.some((x) => x.id > novedades.visto)) return;
-    try { await api('POST', '/api/novedades/visto'); } catch (_) { return; }
-    novedades.visto = Math.max(...novedades.items.map((x) => x.id));
-    pintarNovedadesN();
-  }
-  $('novedadesOk').addEventListener('click', () => $('dlgNovedades').close());
-  // Se cierre como se cierre, quedan leídas.
-  $('dlgNovedades').addEventListener('close', marcarLeidas);
+  $('novedadesOk').addEventListener('click', () => { leerAlCerrar = true; $('dlgNovedades').close(); });
+  // Con "¡Entendido!" (o abriendo la bandeja) quedan leídas; con la ✕ quedan esperando en la campanita.
+  $('dlgNovedades').addEventListener('close', () => {
+    if (leerAlCerrar && !vistaPrevia) marcarNoticias(enVentana, 'leido');
+    else if (!leerAlCerrar && !vistaPrevia && enVentana.some((n) => !n.leido)) avisar('Te quedó guardada en la 🔔 campanita');
+    vistaPrevia = false;
+  });
   $('menuNovedades').addEventListener('click', () => {
-    if (!mostrarNovedades(false)) avisar('Todavía no hay novedades');
+    if (!mostrarNovedades('todas', novedades.items)) avisar('Todavía no hay noticias');
+  });
+  // En la campanita: las noticias sin leer arriba; al abrirla quedan leídas.
+  function pintarBandeja() {
+    const lista = sinLeer().slice().reverse();
+    $('bandeja').hidden = !lista.length;
+    $('bandejaLista').innerHTML = lista.map(tarjetaNoticia).join('');
+    return lista;
+  }
+  $('bandejaTodas').addEventListener('click', () => { $('dlgAvisos').close(); $('menuNovedades').click(); });
+
+  // ---------- 📣 noticias que escribe Pixel Cuyo ----------
+  let vistaPrevia = false;
+  const PARA = { todos: 'Todos', admin: 'Administradoras', vendedor: 'Vendedores' };
+  async function pintarNoticiasEnviadas() {
+    const { noticias } = await api('GET', '/api/noticias');
+    $('listaNoticias').innerHTML = noticias.map((n) => `
+      <li class="cambio">
+        <div class="cambio__top"><b>${escapar(n.icono)} ${escapar(n.titulo)}</b><small>${fechaNoticia(n.fecha)}</small></div>
+        <small>Para: ${PARA[n.para] || n.para} · ${n.lectores.length ? n.lectores.map((l) => `${escapar(l.nombre)} ${l.leyo ? '✓' : '·'}`).join('  ') : 'todavía no hay usuarios para esta noticia'}</small>
+        <div class="cambio__acciones"><span class="cambio__estado">${n.lectores.filter((l) => l.leyo).length} de ${n.lectores.length} la leyeron</span>
+          <button type="button" class="mini mini--borrar" data-noticia-borrar="${n.id}" aria-label="Borrar esta noticia">✕</button></div>
+      </li>`).join('') || '<li class="vacio">Todavía no mandaste ninguna.</li>';
+  }
+  $('menuNoticia').addEventListener('click', async () => {
+    $('formNoticia').reset();
+    mostrarError($('errorNoticia'), null);
+    try { await pintarNoticiasEnviadas(); } catch (_) { /* igual se puede escribir */ }
+    $('dlgNoticia').showModal();
+  });
+  $('noticiaPrevia').addEventListener('click', () => {
+    const f = $('formNoticia');
+    if (!f.titulo.value.trim() || !f.texto.value.trim()) return mostrarError($('errorNoticia'), new Error('Escribí el título y el mensaje para ver cómo queda'));
+    vistaPrevia = true;
+    mostrarNovedades('nuevas', [{ key: 'previa', icono: f.icono.value, titulo: f.titulo.value, texto: f.texto.value, fecha: Date.now(), deMartin: true, leido: false }]);
+  });
+  $('formNoticia').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    try {
+      await api('POST', '/api/noticias', { icono: f.icono.value, titulo: f.titulo.value, texto: f.texto.value, para: f.para.value });
+      f.reset();
+      await pintarNoticiasEnviadas();
+      avisar('Noticia enviada ✓ Le va a aparecer cuando entre al panel');
+    } catch (err) { mostrarError($('errorNoticia'), err); }
+  });
+  $('listaNoticias').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-noticia-borrar]');
+    if (!b || !confirm('¿Borrar esta noticia? Desaparece de la bandeja de todos.')) return;
+    try { await api('DELETE', `/api/noticias/${b.dataset.noticiaBorrar}`); await pintarNoticiasEnviadas(); } catch (err) { avisar(err.message); }
   });
 
   // ---------- 📖 guía del panel ----------
@@ -673,10 +738,15 @@
   const urlConsulta = () => `https://wa.me/${WA_MARTIN}?text=${encodeURIComponent(`¡Hola Martín! Soy ${yo.alias || yo.username} de Carmesí. Te quería consultar: `)}`;
 
   let avisos = [];
+  // El número de la campanita: avisos + noticias sin leer.
+  function pintarCampanita() {
+    const n = avisos.length + sinLeer().length;
+    $('avisosN').hidden = !n;
+    $('avisosN').textContent = n;
+  }
   async function pintarAvisos() {
     try { avisos = (await api('GET', '/api/avisos')).avisos; } catch (_) { return; }
-    $('avisosN').hidden = !avisos.length;
-    $('avisosN').textContent = avisos.length;
+    pintarCampanita();
     $('listaAvisos').innerHTML = avisos.map((a, i) => `
       <li class="aviso-item">
         <span class="aviso-item__icono" aria-hidden="true">${a.icono}</span>
@@ -687,14 +757,17 @@
           ${a.producto ? `<button type="button" class="btn btn--bordo" data-aviso-producto="${a.producto}">Ver producto</button>` : ''}
           ${a.cambios ? '<button type="button" class="btn btn--bordo" data-aviso-cambios>Ver cambios</button>' : ''}
         </div>
-      </li>`).join('') || '<li class="vacio">No tenés avisos. 👌</li>';
+      </li>`).join('') || (sinLeer().length ? '' : '<li class="vacio">No tenés avisos. 👌</li>');
   }
   // Se revisa cada media hora mientras el panel está abierto.
   setInterval(() => { if (yo) pintarAvisos(); }, 30 * 60e3);
 
   $('abrirAvisos').addEventListener('click', async () => {
     await pintarAvisos();
+    const nuevas = pintarBandeja();
     $('dlgAvisos').showModal();
+    // Abrió la campanita: las noticias que ve quedan leídas (el "Nuevo" se ve esta vez).
+    if (nuevas.length) marcarNoticias(nuevas, 'leido');
   });
 
   $('listaAvisos').addEventListener('click', (e) => {

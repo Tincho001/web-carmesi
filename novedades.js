@@ -193,4 +193,16 @@ En **Inicio** también tenés la lista **🚀 Para arrancar**, con los primeros 
 - Si no encuentra nada, les ofrece consultarte por WhatsApp.
 💡 Por eso conviene poner nombres y colores claros, y algo de descripción en cada producto.`,
   },
+  {
+    id: 19,
+    fecha: '2026-10-30',
+    icono: '📬',
+    titulo: 'Tu bandeja de noticias',
+    perm: '',
+    texto: `Las noticias y mejoras del panel ahora quedan guardadas:
+- Cuando hay algo nuevo, te aparece **una vez** al entrar.
+- Si la cerrás con la ✕ sin leerla, te queda en la **🔔 campanita** con el número, hasta que la abras.
+- Todas las anteriores están en **⋯ Más → 📬 Noticias y mejoras**.
+Ahí también te va a escribir Martín cuando haya arreglos o cosas para contarte 💛`,
+  },
 ];

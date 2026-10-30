@@ -334,6 +334,23 @@ async function initDb() {
   if (!(await db.execute('PRAGMA table_info(products)')).rows.some((r) => r.name === 'created_at')) {
     await db.execute('ALTER TABLE products ADD COLUMN created_at INTEGER');
   }
+  // Noticias que Pixel Cuyo escribe desde su panel para el equipo (se suman a las de novedades.js).
+  await db.execute(`CREATE TABLE IF NOT EXISTS panel_news (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    icono TEXT NOT NULL DEFAULT '📣',
+    titulo TEXT NOT NULL,
+    texto TEXT NOT NULL,
+    para TEXT NOT NULL DEFAULT 'todos',
+    created_at INTEGER NOT NULL
+  )`);
+  // Qué noticia vio cada uno: si ya le saltó la ventanita y si ya la leyó (si no, queda en la campanita).
+  await db.execute(`CREATE TABLE IF NOT EXISTS news_state (
+    user_id INTEGER NOT NULL,
+    news_key TEXT NOT NULL,
+    popup_at INTEGER,
+    read_at INTEGER,
+    PRIMARY KEY (user_id, news_key)
+  )`);
   // Cambios que las administradoras le piden a Pixel Cuyo (hasta 3 por mes entre todas).
   await db.execute(`CREATE TABLE IF NOT EXISTS change_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -518,6 +535,23 @@ function tooManyHits(ip, kind, max) {
 }
 const STAT_KINDS = ['vista', 'agregado', 'whatsapp', 'compartir', 'pedido'];
 const CAMBIOS_POR_MES = 3;
+
+// Todas las noticias que le tocan a un usuario, con su estado (ya le saltó / ya la leyó), de la más vieja a la más nueva.
+async function noticiasDe(user) {
+  const estado = new Map((await db.execute({ sql: 'SELECT * FROM news_state WHERE user_id = ?', args: [user.id] })).rows.map((r) => [r.news_key, r]));
+  // Antes de la bandeja, "news_seen" guardaba hasta qué novedad había leído: esas cuentan como leídas.
+  const vistoViejo = Number((await getUser(user.id)).news_seen) || 0;
+  const desdeArchivo = NOVEDADES
+    .filter((n) => (!n.perm || n.perm.split('|').some((k) => can.do(user, k))) && (!n.rol || n.rol === user.role || can.super(user)))
+    .map((n) => ({ key: 'n' + n.id, icono: n.icono, titulo: n.titulo, texto: n.texto, fecha: Date.parse(n.fecha + 'T00:00:00-03:00') + n.id, viejo: n.id <= vistoViejo }));
+  const escritas = (await db.execute('SELECT * FROM panel_news ORDER BY created_at')).rows
+    .filter((n) => n.para === 'todos' || n.para === user.role || can.super(user))
+    .map((n) => ({ key: 'm' + n.id, icono: n.icono, titulo: n.titulo, texto: n.texto, fecha: n.created_at, deMartin: true }));
+  return [...desdeArchivo, ...escritas].sort((a, b) => a.fecha - b.fecha).map(({ viejo, ...n }) => {
+    const e = estado.get(n.key) || {};
+    return { ...n, popup: viejo || !!e.popup_at, leido: viejo || !!e.read_at };
+  });
+}
 const mesAR = (ms = Date.now()) => diaAR(ms).slice(0, 7); // 2026-10
 const cambioPublico = (c) => ({ id: c.id, quien: c.who, texto: c.text, mes: c.month, fecha: c.created_at, estado: c.status, actualizado: c.updated_at, cuenta: !!c.counts });
 const cambiosUsados = async () => Number((await db.execute({ sql: 'SELECT COUNT(*) AS n FROM change_requests WHERE month = ? AND counts = 1', args: [mesAR()] })).rows[0].n);
@@ -892,7 +926,7 @@ async function handleApi(req, res, url) {
 
   // Mientras Pixel Cuyo mira como otra persona, no se tocan sus cosas personales.
   if (user._real && route === 'PUT /api/me/password') throw new HttpError(403, 'Estás viendo como otra persona: su contraseña no se puede cambiar desde acá');
-  if (user._real && ['POST /api/novedades/visto', 'POST /api/cuota/visto'].includes(route)) return send(res, 200, { ok: true, prueba: true });
+  if (user._real && ['POST /api/novedades/visto', 'POST /api/novedades/estado', 'POST /api/cuota/visto'].includes(route)) return send(res, 200, { ok: true, prueba: true });
 
   if (route === 'GET /api/me') {
     let pasos = [];
@@ -1349,10 +1383,58 @@ async function handleApi(req, res, url) {
 
   // 🔔 Avisos de la campanita.
   // Novedades del panel (novedades.js): cada uno ve las de lo que puede hacer.
+  // Bandeja de noticias del panel: las de novedades.js (las deja Martín con cada mejora) + las que escribe desde su panel.
   if (route === 'GET /api/novedades') {
-    const visto = Number((await getUser(user.id)).news_seen) || 0;
-    const items = NOVEDADES.filter((n) => (!n.perm || n.perm.split('|').some((k) => can.do(user, k))) && (!n.rol || n.rol === user.role || can.super(user)));
-    return send(res, 200, { items, visto });
+    const items = await noticiasDe(user);
+    return send(res, 200, { items, primeraVez: !items.some((n) => n.popup || n.leido) });
+  }
+  // Marcar que ya le saltó la ventanita ("popup") o que ya la leyó ("leido").
+  if (route === 'POST /api/novedades/estado') {
+    const body = await readJson(req);
+    const campo = body.accion === 'leido' ? 'read_at' : 'popup_at';
+    const keys = (Array.isArray(body.keys) ? body.keys : []).map(String).filter((k) => /^[nm]\d+$/.test(k)).slice(0, 200);
+    for (const k of keys) {
+      await db.execute({
+        sql: `INSERT INTO news_state (user_id, news_key, ${campo}) VALUES (?, ?, ?) ON CONFLICT (user_id, news_key) DO UPDATE SET ${campo} = COALESCE(${campo}, excluded.${campo})`,
+        args: [user.id, k, Date.now()],
+      });
+    }
+    return send(res, 200, { ok: true });
+  }
+
+  // ----- noticias que escribe Pixel Cuyo -----
+  if (route === 'GET /api/noticias') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo');
+    const news = (await db.execute('SELECT * FROM panel_news ORDER BY created_at DESC')).rows;
+    const users = (await db.execute("SELECT id, username, alias, role FROM users WHERE role != 'super'")).rows;
+    const leidas = (await db.execute("SELECT user_id, news_key FROM news_state WHERE read_at IS NOT NULL AND news_key LIKE 'm%'")).rows;
+    return send(res, 200, {
+      noticias: news.map((n) => ({
+        id: n.id, icono: n.icono, titulo: n.titulo, texto: n.texto, para: n.para, fecha: n.created_at,
+        lectores: users.filter((u) => n.para === 'todos' || n.para === u.role).map((u) => ({
+          nombre: u.alias || u.username,
+          leyo: leidas.some((l) => l.user_id === u.id && l.news_key === 'm' + n.id),
+        })),
+      })),
+    });
+  }
+  if (route === 'POST /api/noticias') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo');
+    const body = await readJson(req);
+    const titulo = cleanText(body.titulo, 90);
+    const texto = cleanDescription(body.texto).slice(0, 2000);
+    const para = ['todos', 'admin', 'vendedor'].includes(body.para) ? body.para : 'todos';
+    const icono = cleanText(body.icono, 8) || '📣';
+    if (!titulo || !texto) throw new HttpError(400, 'Poné un título y el texto de la noticia');
+    await db.execute({ sql: 'INSERT INTO panel_news (icono, titulo, texto, para, created_at) VALUES (?, ?, ?, ?, ?)', args: [icono, titulo, texto, para, Date.now()] });
+    return send(res, 201, { ok: true });
+  }
+  const noticiaId = url.pathname.match(/^\/api\/noticias\/(\d+)$/);
+  if (noticiaId && req.method === 'DELETE') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo');
+    await db.execute({ sql: 'DELETE FROM panel_news WHERE id = ?', args: [Number(noticiaId[1])] });
+    await db.execute({ sql: 'DELETE FROM news_state WHERE news_key = ?', args: ['m' + noticiaId[1]] });
+    return send(res, 200, { ok: true });
   }
   if (route === 'POST /api/novedades/visto') {
     const ultimo = Math.max(0, ...NOVEDADES.map((n) => n.id));

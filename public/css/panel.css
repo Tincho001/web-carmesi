@@ -574,3 +574,10 @@ body.viendo-como .cabeza { top: 38px; }
 /* ---------- Cupo de cambios del mes ---------- */
 .cupo-mes { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; padding: 10px 12px; border-radius: 12px; background: #fbf1dd; color: #6b4a12; font-size: 13px; }
 .cambio__libre { font-size: 11.5px; color: #2e7d32; font-weight: 600; }
+
+/* ---------- Bandeja de noticias en la campanita ---------- */
+.bandeja { margin: 12px 0 4px; }
+.bandeja__titulo { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--gris); }
+.bandeja .novedades { margin: 0; }
+.bandeja__todas { display: block; margin: 8px auto 0; padding: 6px 10px; border: 0; background: none; color: var(--bordo); font: inherit; font-size: 13px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+#novedadesPie[hidden] { display: none; }
