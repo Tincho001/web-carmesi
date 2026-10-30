@@ -491,6 +491,29 @@ async function getTextos() {
   return { ...DEFAULT_TEXTOS, ...saved };
 }
 
+// Anuncios para las clientas: una tarjeta que sube desde abajo y una barrita fina arriba. Los maneja la dueña.
+const DEFAULT_ANUNCIOS = {
+  tarjeta: { activo: false, titulo: '', texto: '', foto: '', boton: 'Ver', destino: '', desde: '', hasta: '', version: 0 },
+  barra: { activo: false, texto: '', destino: '', desde: '', hasta: '' },
+};
+async function getAnuncios() {
+  let saved = {};
+  try { saved = JSON.parse((await getMeta('anuncios')) || '{}'); } catch { saved = {}; }
+  return { tarjeta: { ...DEFAULT_ANUNCIOS.tarjeta, ...saved.tarjeta }, barra: { ...DEFAULT_ANUNCIOS.barra, ...saved.barra } };
+}
+// Si un anuncio está prendido y hoy cae dentro de sus fechas (vacías = sin límite).
+const anuncioVigente = (a, hoy = diaAR(Date.now())) => a.activo && (!a.desde || hoy >= a.desde) && (!a.hasta || hoy <= a.hasta);
+// Lo que ve la tienda: solo lo vigente.
+async function anunciosPublicos() {
+  const { tarjeta, barra } = await getAnuncios();
+  return {
+    tarjeta: anuncioVigente(tarjeta) ? { titulo: tarjeta.titulo, texto: tarjeta.texto, foto: tarjeta.foto ? photoUrl(tarjeta.foto) : '', boton: tarjeta.boton, destino: tarjeta.destino, version: tarjeta.version } : null,
+    barra: anuncioVigente(barra) ? { texto: barra.texto, destino: barra.destino } : null,
+  };
+}
+const fechaValida = (f) => (f === '' || /^\d{4}-\d{2}-\d{2}$/.test(f) ? f : null);
+const destinoValido = (d) => (/^(|nuevos|whatsapp|categoria:\d+|producto:\d+)$/.test(d) ? d : '');
+
 async function getFaq() {
   try {
     const saved = JSON.parse((await getMeta('faq')) || 'null');
@@ -794,6 +817,7 @@ async function publicCatalog() {
       nuevo: !!p.created_at && p.created_at > Date.now() - NUEVO_DIAS * 864e5,
     })),
     preguntas: await getFaq(),
+    anuncios: await anunciosPublicos(),
   };
 }
 
@@ -1080,6 +1104,50 @@ async function handleApi(req, res, url) {
       return send(res, 200, { ok: true });
     }
     throw new HttpError(405, 'Método no permitido');
+  }
+
+  // ----- anuncios en la web (tarjeta y barrita) -----
+  if (route === 'GET /api/anuncios') {
+    requireRole(can.do(user, 'settings'), 'No tenés permiso para los anuncios de la web');
+    const a = await getAnuncios();
+    return send(res, 200, { ...a, tarjeta: { ...a.tarjeta, foto: a.tarjeta.foto ? photoUrl(a.tarjeta.foto) : '' }, hoy: diaAR(Date.now()) });
+  }
+  if (route === 'PUT /api/anuncios') {
+    requireRole(can.do(user, 'settings'), 'No tenés permiso para los anuncios de la web');
+    const body = await readJson(req);
+    const antes = await getAnuncios();
+    const t = body.tarjeta || {};
+    const b = body.barra || {};
+    const fechas = [t.desde, t.hasta, b.desde, b.hasta].map((f) => fechaValida(String(f || '')));
+    if (fechas.includes(null)) throw new HttpError(400, 'Revisá las fechas');
+    if (fechas[0] && fechas[1] && fechas[0] > fechas[1]) throw new HttpError(400, 'En la tarjeta, la fecha "hasta" es antes que "desde"');
+    if (fechas[2] && fechas[3] && fechas[2] > fechas[3]) throw new HttpError(400, 'En la barrita, la fecha "hasta" es antes que "desde"');
+    // Foto de la tarjeta: nueva (data:), la misma, o ninguna.
+    let foto = antes.tarjeta.foto;
+    if (typeof t.foto === 'string' && t.foto.startsWith('data:')) foto = saveImage(t.foto, `a${newPhotoName()}`);
+    else if (!t.foto) foto = '';
+    if (foto !== antes.tarjeta.foto) removeUpload(antes.tarjeta.foto);
+    const tarjeta = {
+      activo: !!t.activo,
+      titulo: cleanText(t.titulo, 60),
+      texto: cleanDescription(t.texto).slice(0, 220),
+      foto,
+      boton: cleanText(t.boton, 24) || 'Ver',
+      destino: destinoValido(String(t.destino || '')),
+      desde: fechas[0], hasta: fechas[1],
+    };
+    if (tarjeta.activo && !tarjeta.titulo) throw new HttpError(400, 'La tarjeta necesita un título');
+    // Si cambia lo que se ve, las clientas la vuelven a ver una vez.
+    const cambio = ['titulo', 'texto', 'foto', 'boton', 'destino'].some((k) => tarjeta[k] !== antes.tarjeta[k]) || (tarjeta.activo && !antes.tarjeta.activo);
+    tarjeta.version = cambio ? Date.now() : antes.tarjeta.version;
+    const barra = { activo: !!b.activo, texto: cleanText(b.texto, 90), destino: destinoValido(String(b.destino || '')), desde: fechas[2], hasta: fechas[3] };
+    if (barra.activo && !barra.texto) throw new HttpError(400, 'La barrita necesita un texto');
+    await setMeta('anuncios', JSON.stringify({ tarjeta, barra }));
+    const changes = [];
+    if (cambio || tarjeta.activo !== antes.tarjeta.activo || tarjeta.desde !== antes.tarjeta.desde || tarjeta.hasta !== antes.tarjeta.hasta) changes.push(`tarjeta: ${tarjeta.activo ? `"${tarjeta.titulo}"` : 'apagada'}`);
+    if (['activo', 'texto', 'destino', 'desde', 'hasta'].some((k) => barra[k] !== antes.barra[k])) changes.push(`barrita: ${barra.activo ? `"${barra.texto}"` : 'apagada'}`);
+    if (changes.length) await logActivity('site', null, 'anuncio en la web', user, 'update', changes);
+    return send(res, 200, { ok: true });
   }
 
   if (route === 'GET /api/textos') return send(res, 200, await getTextos());

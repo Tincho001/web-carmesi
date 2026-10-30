@@ -184,6 +184,68 @@
   $('menuStats').addEventListener('click', () => { $('dlgStats').showModal(); pintarStats(30); });
   $('statsDias').addEventListener('click', (e) => { const b = e.target.closest('[data-dias]'); if (b) pintarStats(Number(b.dataset.dias)); });
 
+  // ---------- 📣 anuncio en la web (tarjeta y barrita para las clientas) ----------
+  let anuncioFoto = '';   // URL de la que ya está, data: de una nueva, o '' sin foto
+  function opcionesDestino() {
+    const ops = [['', 'Sin botón / a ningún lado'], ['nuevos', '✨ Los productos nuevos'], ['whatsapp', '💬 Tu WhatsApp'],
+      ...categorias.map((c) => [`categoria:${c.id}`, `🗂️ Categoría: ${c.name}`]),
+      ...productos.filter((p) => !p.hidden).map((p) => [`producto:${p.id}`, `👜 ${p.name}${p.color ? ' ' + p.color : ''}`])];
+    return ops.map(([v, t]) => `<option value="${escapar(v)}">${escapar(t)}</option>`).join('');
+  }
+  function pintarFotoAnuncio() {
+    $('aFotoPrevia').hidden = !anuncioFoto;
+    if (anuncioFoto) $('aFotoPrevia').src = anuncioFoto;
+    $('aFotoQuitar').hidden = !anuncioFoto;
+  }
+  $('menuAnuncio').addEventListener('click', async () => {
+    try {
+      const a = await api('GET', '/api/anuncios');
+      const f = $('formAnuncio');
+      f.querySelectorAll('select.destinos').forEach((s) => { s.innerHTML = opcionesDestino(); });
+      f.tActivo.checked = a.tarjeta.activo;
+      f.tTitulo.value = a.tarjeta.titulo;
+      f.tTexto.value = a.tarjeta.texto;
+      f.tBoton.value = a.tarjeta.boton;
+      f.tDestino.value = a.tarjeta.destino;
+      f.tDesde.value = a.tarjeta.desde;
+      f.tHasta.value = a.tarjeta.hasta;
+      f.bActivo.checked = a.barra.activo;
+      f.bTexto.value = a.barra.texto;
+      f.bDestino.value = a.barra.destino;
+      f.bDesde.value = a.barra.desde;
+      f.bHasta.value = a.barra.hasta;
+      anuncioFoto = a.tarjeta.foto;
+      pintarFotoAnuncio();
+      mostrarError($('errorAnuncio'), null);
+      $('dlgAnuncio').showModal();
+    } catch (err) { avisar(err.message); }
+  });
+  $('aFotoCamara').addEventListener('click', () => $('aFotoCamaraInput').click());
+  $('aFotoGaleria').addEventListener('click', () => $('aFotoGaleriaInput').click());
+  $('aFotoQuitar').addEventListener('click', () => { anuncioFoto = ''; pintarFotoAnuncio(); });
+  async function fotoAnuncioElegida(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try { anuncioFoto = await achicar(file, 900, 0.82); pintarFotoAnuncio(); } catch (err) { avisar(err.message); }
+  }
+  $('aFotoCamaraInput').addEventListener('change', fotoAnuncioElegida);
+  $('aFotoGaleriaInput').addEventListener('change', fotoAnuncioElegida);
+  $('formAnuncio').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const boton = f.querySelector('[type="submit"]');
+    boton.disabled = true;
+    try {
+      await api('PUT', '/api/anuncios', {
+        tarjeta: { activo: f.tActivo.checked, titulo: f.tTitulo.value, texto: f.tTexto.value, foto: anuncioFoto.startsWith('data:') ? anuncioFoto : anuncioFoto ? 'igual' : '', boton: f.tBoton.value, destino: f.tDestino.value, desde: f.tDesde.value, hasta: f.tHasta.value },
+        barra: { activo: f.bActivo.checked, texto: f.bTexto.value, destino: f.bDestino.value, desde: f.bDesde.value, hasta: f.bHasta.value },
+      });
+      $('dlgAnuncio').close();
+      avisar('Anuncio guardado ✓ Miralo con "Ver web"');
+    } catch (err) { mostrarError($('errorAnuncio'), err); } finally { boton.disabled = false; }
+  });
+
   // ---------- 📝 textos de la web ----------
   $('menuTextos').addEventListener('click', async () => {
     try {

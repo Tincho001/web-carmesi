@@ -205,4 +205,15 @@ En **Inicio** también tenés la lista **🚀 Para arrancar**, con los primeros 
 - Todas las anteriores están en **⋯ Más → 📬 Noticias y mejoras**.
 Ahí también te va a escribir Martín cuando haya arreglos o cosas para contarte 💛`,
   },
+  {
+    id: 20,
+    fecha: '2026-10-30',
+    icono: '📣',
+    titulo: 'Anuncios para tus clientas',
+    perm: 'settings',
+    texto: `Ahora podés contarle novedades a las clientas apenas entran a la web, en **⋯ Más → 📣 Anuncio en la web**:
+- **✨ Tarjeta:** sube suave desde abajo, con título, texto, foto y un botón (a los nuevos, una categoría, un producto o tu WhatsApp). Cada clienta la ve **una sola vez**.
+- **➖ Barrita:** una línea finita arriba de todo, para algo corto. Ej: "🎁 Envío gratis este finde".
+- Poné las fechas **desde / hasta** y aparece y se va solo 😉`,
+  },
 ];

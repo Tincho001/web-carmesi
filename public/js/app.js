@@ -387,6 +387,58 @@
     $('etiquetaProductos').textContent = 'Más productos';
   }
 
+  // ---------- Anuncios de la dueña: barrita arriba y tarjeta que sube desde abajo ----------
+  const anuncios = datos.anuncios || {};
+  // A dónde lleva el botón: los nuevos, una categoría, un producto o WhatsApp.
+  function irDestino(destino) {
+    const [tipo, id] = String(destino || '').split(':');
+    if (tipo === 'whatsapp') return window.open(urlWhatsapp(saludo), '_blank', 'noopener');
+    if (tipo === 'producto' && porId(id)) { location.href = enlace(porId(id)); return; }
+    const cat = tipo === 'nuevos' ? 'nuevos' : tipo === 'categoria' ? id : null;
+    const boton = cat && document.querySelector(`.filtro[data-cat="${cat}"]`);
+    if (boton) boton.click();
+    if ($('productos')) $('productos').scrollIntoView({ behavior: 'smooth' });
+    else location.href = '/#productos';
+  }
+  const leer = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+  const guardarK = (k, v) => { try { localStorage.setItem(k, v); } catch (_) { /* sin almacenamiento */ } };
+  if (anuncios.barra) {
+    let cerrada = false;
+    try { cerrada = sessionStorage.getItem('carmesi-barra') === anuncios.barra.texto; } catch (_) { cerrada = false; }
+    if (!cerrada || vista) {
+      $('anuncioBarraTexto').textContent = anuncios.barra.texto;
+      $('anuncioBarraVer').hidden = !anuncios.barra.destino;
+      if (anuncios.barra.destino) {
+        $('anuncioBarraLink').href = '#productos';
+        $('anuncioBarraLink').addEventListener('click', (e) => { e.preventDefault(); irDestino(anuncios.barra.destino); });
+      }
+      $('anuncioBarra').hidden = false;
+      $('anuncioBarraCerrar').addEventListener('click', () => {
+        $('anuncioBarra').hidden = true;
+        try { sessionStorage.setItem('carmesi-barra', anuncios.barra.texto); } catch (_) { /* nada */ }
+      });
+    }
+  }
+  const t = anuncios.tarjeta;
+  // Cada clienta ve la tarjeta una sola vez por anuncio (en la vista previa, siempre).
+  if (t && (vista || leer('carmesi-anuncio') !== String(t.version))) {
+    $('anuncioTitulo').textContent = t.titulo;
+    $('anuncioTexto').textContent = t.texto;
+    $('anuncioTexto').hidden = !t.texto;
+    if (t.foto) { $('anuncioFoto').src = t.foto; $('anuncioFoto').hidden = false; }
+    $('anuncioBoton').hidden = !t.destino;
+    $('anuncioBoton').textContent = t.boton || 'Ver';
+    const cerrar = () => {
+      $('anuncio').classList.remove('visible');
+      guardarK('carmesi-anuncio', String(t.version));
+      setTimeout(() => { $('anuncio').hidden = true; }, 700);
+    };
+    $('anuncioCerrar').addEventListener('click', cerrar);
+    $('anuncioBoton').addEventListener('click', () => { cerrar(); irDestino(t.destino); });
+    $('anuncio').hidden = false;
+    setTimeout(() => $('anuncio').classList.add('visible'), 1400);
+  }
+
   pintarGrilla();
   pintarPedido();
   aparecer(document.querySelectorAll('.catalogo > .etiqueta, .sobre, .como li, .preguntas .etiqueta, .pregunta'));

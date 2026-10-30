@@ -28,6 +28,11 @@
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
+  <!-- Barrita de anuncio (la maneja la dueña desde el panel) -->
+  <div class="anuncio-barra" id="anuncioBarra" hidden>
+    <a id="anuncioBarraLink"><span id="anuncioBarraTexto"></span><span class="anuncio-barra__ver" id="anuncioBarraVer" hidden>Ver →</span></a>
+    <button type="button" id="anuncioBarraCerrar" aria-label="Cerrar anuncio">×</button>
+  </div>
   <header class="barra">
     <a class="barra__marca" href="/#inicio" aria-label="Carmesí Bags, inicio">
       <img src="/assets/img/monograma-claro.png" alt="" width="34" height="30">
@@ -168,6 +173,18 @@
       <button class="pedido__vaciar" type="button" id="pedidoVaciar">Vaciar pedido</button>
     </div>
   </dialog>
+
+  <!-- Tarjeta de anuncio: sube desde abajo una vez por anuncio -->
+  <aside class="anuncio" id="anuncio" aria-label="Novedad de Carmesí" hidden>
+    <button type="button" class="anuncio__cerrar" id="anuncioCerrar" aria-label="Cerrar">×</button>
+    <img class="anuncio__foto" id="anuncioFoto" alt="" hidden>
+    <div class="anuncio__cuerpo">
+      <p class="anuncio__marca">Carmesí · Novedad</p>
+      <h3 id="anuncioTitulo"></h3>
+      <p id="anuncioTexto"></p>
+      <button type="button" class="boton boton--bordo" id="anuncioBoton" hidden></button>
+    </div>
+  </aside>
 
   <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
 
