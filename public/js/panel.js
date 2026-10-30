@@ -129,7 +129,7 @@
     pintarTodo();
   }
 
-  // ---------- 🔔 clientas que esperan que vuelva un producto ----------
+  // ---------- 🔔 clientes que esperan que vuelva un producto ----------
   let esperando = [];
   const pendientesDe = (id) => esperando.filter((a) => a.productId === id && !a.notifiedAt);
   const telLindo = (t) => t.replace(/^549(\d{3})(\d{3})(\d+)$/, '$1 $2 $3');
@@ -143,7 +143,7 @@
     const pend = lista.filter((a) => !a.notifiedAt);
     return `
       <div class="esperan">
-        <strong>🔔 ${pend.length ? `${pend.length} ${pend.length === 1 ? 'clienta espera' : 'clientas esperan'} que vuelva` : 'Clientas que avisaste'}</strong>
+        <strong>🔔 ${pend.length ? `${pend.length} ${pend.length === 1 ? 'persona espera' : 'personas esperan'} que vuelva` : 'Personas que avisaste'}</strong>
         ${pend.length && p.soldOut ? '<p class="ayuda">Cuando vuelva a entrar, apagá "Sin stock" y avisales desde acá.</p>' : ''}
         <ul>${lista.map((a) => `
           <li class="${a.notifiedAt ? 'esperan--avisada' : ''}">
@@ -180,13 +180,13 @@
           <img src="${p.thumb || ''}" alt="">
           <span class="stats__info"><b>${escapar(p.name)}</b><small>${escapar(p.color)}</small>
             <span class="stats__nums">👀 ${x.vista} · 🛒 ${x.agregado} · 💬 ${x.whatsapp} · 📤 ${x.pedido}</span></span>
-        </li>`).join('') || '<li class="vacio">Todavía no hay datos. Se empiezan a contar cuando las clientas visitan la web.</li>';
+        </li>`).join('') || '<li class="vacio">Todavía no hay datos. Se empiezan a contar cuando la gente visita la web.</li>';
     } catch (err) { $('listaStats').innerHTML = `<li class="vacio">${escapar(err.message)}</li>`; }
   }
   $('menuStats').addEventListener('click', () => { $('dlgStats').showModal(); pintarStats(30); });
   $('statsDias').addEventListener('click', (e) => { const b = e.target.closest('[data-dias]'); if (b) pintarStats(Number(b.dataset.dias)); });
 
-  // ---------- 📣 anuncio en la web (tarjeta y barrita para las clientas) ----------
+  // ---------- 📣 anuncio en la web (tarjeta y barrita para los clientes) ----------
   let anuncioFoto = '';   // URL de la que ya está, data: de una nueva, o '' sin foto
   function opcionesDestino() {
     const ops = [['', 'Sin botón / a ningún lado'], ['nuevos', '✨ Los productos nuevos'], ['whatsapp', '💬 Tu WhatsApp'],
@@ -283,7 +283,7 @@
     d.innerHTML = `
       <div class="faq__top"><strong>Pregunta</strong><button type="button" class="mini mini--borrar" data-faq-borrar aria-label="Borrar esta pregunta">✕</button></div>
       <input name="q" maxlength="120" placeholder="Ej: ¿Hacen envíos?" value="${escapar(x.q)}">
-      <textarea name="a" rows="3" maxlength="600" placeholder="La respuesta, como se la dirías a una clienta">${escapar(x.a)}</textarea>`;
+      <textarea name="a" rows="3" maxlength="600" placeholder="La respuesta, como se la dirías a quien te pregunta">${escapar(x.a)}</textarea>`;
     return d;
   }
   $('menuFaq').addEventListener('click', async () => {
@@ -884,8 +884,8 @@
       { n: ocultos, t: 'Ocultos', filtro: 'ocultos' },
       { n: categorias.length, t: 'Categorías', ir: 'categorias' },
     ];
-    const clientas = esperando.filter((a) => !a.notifiedAt).length;
-    if (clientas) cajas.splice(2, 0, { n: clientas, t: 'Clientas esperando stock', filtro: 'sinstock', alerta: true });
+    const clientes = esperando.filter((a) => !a.notifiedAt).length;
+    if (clientes) cajas.splice(2, 0, { n: clientes, t: 'Esperando stock', filtro: 'sinstock', alerta: true });
     $('numeros').innerHTML = cajas.map((c) => `
       <button type="button" class="numero${c.alerta ? ' numero--alerta' : ''}" ${c.filtro ? `data-filtrar="${c.filtro}"` : `data-ir-a="${c.ir}"`}>
         <strong>${c.n}</strong><span>${c.t}</span>
@@ -1044,7 +1044,7 @@
     c.parentElement.querySelectorAll('.puntos span').forEach((p, k) => p.classList.toggle('on', k === i));
   }, true);
 
-  // Avisar a una clienta: se abre su WhatsApp con el mensaje listo y queda marcada como avisada.
+  // Avisar a un cliente: se abre su WhatsApp con el mensaje listo y queda marcada como avisada.
   $('fichaCuerpo').addEventListener('click', async (e) => {
     const av = e.target.closest('[data-alerta-avisar]');
     const borrar = e.target.closest('[data-alerta-borrar]');
@@ -1075,7 +1075,7 @@
       const esperan = pendientesDe(enFicha.id).length;
       if (sw.dataset.sw === 'soldOut') pintarFicha();
       avisar(sw.dataset.sw === 'soldOut'
-        ? (product.soldOut ? 'Marcado sin stock' : esperan ? `Marcado con stock ✓ ${esperan === 1 ? 'Hay 1 clienta esperando' : `Hay ${esperan} clientas esperando`}: avisales acá abajo 👇` : 'Marcado con stock')
+        ? (product.soldOut ? 'Marcado sin stock' : esperan ? `Marcado con stock ✓ ${esperan === 1 ? 'Hay 1 persona esperando' : `Hay ${esperan} personas esperando`}: avisales acá abajo 👇` : 'Marcado con stock')
         : (product.hidden ? 'Oculto de la web' : 'Visible en la web'));
     } catch (err) {
       sw.checked = !sw.checked;

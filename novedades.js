@@ -35,7 +35,7 @@ Por ahora la web está **en construcción** para el público: podés ir cargando
     titulo: 'Descripción de cada producto',
     perm: 'products_edit',
     texto: `Al cargar o editar un producto podés poner una **descripción** (opcional): medidas, material, bolsillos, tipo de correa…
-La clienta la ve al tocar el producto en la web.`,
+Se ve al tocar el producto en la web.`,
   },
   {
     id: 4,
@@ -55,7 +55,7 @@ La clienta la ve al tocar el producto en la web.`,
     titulo: 'Cada producto tiene su propio link',
     perm: 'products_edit',
     texto: `Abrí un producto y tocá **🔗 Copiar link para compartir**. Pegalo en WhatsApp o en una historia de Instagram.
-La clienta ve esa cartera con sus fotos, el precio y el botón para pedirla. Cuando te consulte desde ahí, el mensaje ya te llega con el link.
+Quien lo abre ve esa cartera con sus fotos, el precio y el botón para pedirla. Cuando te consulte desde ahí, el mensaje ya te llega con el link.
 Los links funcionan cuando se abra la web.`,
   },
   {
@@ -71,11 +71,11 @@ Los links funcionan cuando se abra la web.`,
     id: 7,
     fecha: '2026-10-29',
     icono: '🛍️',
-    titulo: '"Avisame cuando vuelva": clientas que esperan stock',
+    titulo: '"Avisame cuando vuelva": avisos de stock',
     perm: 'products_edit',
-    texto: `Cuando un producto está **sin stock**, en la web aparece el botón **🔔 Avisame cuando vuelva**. La clienta deja su WhatsApp.
-- En el panel, ese producto muestra **🔔** con cuántas clientas esperan.
-- Cuando vuelva a entrar: abrí el producto, apagá **Sin stock** y tocá **💬 Avisar** en cada clienta. Se abre su WhatsApp con el mensaje y el link ya escritos.
+    texto: `Cuando un producto está **sin stock**, en la web aparece el botón **🔔 Avisame cuando vuelva**. Quien lo quiere deja su WhatsApp.
+- En el panel, ese producto muestra **🔔** con cuántas personas esperan.
+- Cuando vuelva a entrar: abrí el producto, apagá **Sin stock** y tocá **💬 Avisar** en cada persona. Se abre su WhatsApp con el mensaje y el link ya escritos.
 - La **campanita** te recuerda si te quedó alguna sin avisar.`,
   },
   {
@@ -91,9 +91,9 @@ En la tienda también hay un botón **✨ Nuevos** para ver solo esos.`,
     id: 9,
     fecha: '2026-10-29',
     icono: '📊',
-    titulo: 'Lo más visto por las clientas',
+    titulo: 'Lo más visto en tu web',
     perm: 'activity',
-    texto: `En **⋯ Más → 📊 Lo más visto** ves qué productos miran más las clientas, cuáles agregan al pedido y cuáles consultan por WhatsApp.
+    texto: `En **⋯ Más → 📊 Lo más visto** ves qué productos se miran más, cuáles agregan al pedido y cuáles consultan por WhatsApp.
 - Podés ver los últimos 7 días, 30 días o 3 meses.
 - Te sirve para saber **qué reponer** y qué mostrar en Instagram.
 - Lo que mirás vos con el panel abierto no cuenta.`,
@@ -104,7 +104,7 @@ En la tienda también hay un botón **✨ Nuevos** para ver solo esos.`,
     icono: '❓',
     titulo: 'Preguntas frecuentes en la web',
     perm: 'settings',
-    texto: `Abajo de los productos ahora hay **preguntas frecuentes** (envíos, pagos…), así las clientas encuentran la respuesta sin escribirte.
+    texto: `Abajo de los productos ahora hay **preguntas frecuentes** (envíos, pagos…), así quien entra encuentra la respuesta sin escribirte.
 Dejé unas de ejemplo: **revisalas y cambialas** en **⋯ Más → ❓ Preguntas frecuentes**, sobre todo lo de envíos y formas de pago.`,
   },
   {
@@ -188,7 +188,7 @@ En **Inicio** también tenés la lista **🚀 Para arrancar**, con los primeros 
     icono: '🔍',
     titulo: 'Buscador en la tienda',
     perm: '',
-    texto: `Ahora las clientas pueden **buscar** en la web: arriba de las categorías hay un buscador.
+    texto: `Ahora se puede **buscar** en la web: arriba de las categorías hay un buscador.
 - Busca por nombre, color, categoría y descripción (ej: "cartera negra", "leopardo", "matero").
 - Si no encuentra nada, les ofrece consultarte por WhatsApp.
 💡 Por eso conviene poner nombres y colores claros, y algo de descripción en cada producto.`,
@@ -209,10 +209,10 @@ Ahí también te va a escribir Martín cuando haya arreglos o cosas para contart
     id: 20,
     fecha: '2026-10-30',
     icono: '📣',
-    titulo: 'Anuncios para tus clientas',
+    titulo: 'Anuncios en tu web',
     perm: 'settings',
-    texto: `Ahora podés contarle novedades a las clientas apenas entran a la web, en **⋯ Más → 📣 Anuncio en la web**:
-- **✨ Tarjeta:** sube suave desde abajo, con título, texto, foto y un botón (a los nuevos, una categoría, un producto o tu WhatsApp). Cada clienta la ve **una sola vez**.
+    texto: `Ahora podés contarle novedades a quienes entran a la web, en **⋯ Más → 📣 Anuncio en la web**:
+- **✨ Tarjeta:** sube suave desde abajo, con título, texto, foto y un botón (a los nuevos, una categoría, un producto o tu WhatsApp). Cada persona la ve **una sola vez**.
 - **➖ Barrita:** una línea finita arriba de todo, para algo corto. Ej: "🎁 Envío gratis este finde".
 - Poné las fechas **desde / hasta** y aparece y se va solo 😉`,
   },
@@ -225,7 +225,7 @@ Ahí también te va a escribir Martín cuando haya arreglos o cosas para contart
     rol: 'admin',
     texto: `Arriba de todo en **⋯ Más** tenés el botón **🚀 Publicar web**.
 - Antes, revisá tus productos, precios, textos y preguntas frecuentes.
-- Cuando lo toques, tu web queda **abierta para todas tus clientas** en carmesibags.com.ar.
+- Cuando lo toques, tu web queda **abierta para todo el mundo** en carmesibags.com.ar.
 - Después la seguís manejando igual desde el panel 💛`,
   },
 ];

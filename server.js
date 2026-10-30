@@ -366,7 +366,7 @@ async function initDb() {
   if (!(await db.execute('PRAGMA table_info(change_requests)')).rows.some((r) => r.name === 'counts')) {
     await db.execute('ALTER TABLE change_requests ADD COLUMN counts INTEGER NOT NULL DEFAULT 1');
   }
-  // "Avisame cuando vuelva": clientas que dejaron su WhatsApp en un producto sin stock.
+  // "Avisame cuando vuelva": clientes que dejaron su WhatsApp en un producto sin stock.
   await db.execute(`CREATE TABLE IF NOT EXISTS stock_alerts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     product_id INTEGER NOT NULL,
@@ -375,7 +375,7 @@ async function initDb() {
     created_at INTEGER NOT NULL,
     notified_at INTEGER
   )`);
-  // Qué miran las clientas: un contador por producto, día y tipo (vista, agregado, whatsapp, compartir, pedido).
+  // Qué miran los clientes: un contador por producto, día y tipo (vista, agregado, whatsapp, compartir, pedido).
   await db.execute(`CREATE TABLE IF NOT EXISTS product_stats (
     product_id INTEGER NOT NULL,
     day TEXT NOT NULL,
@@ -480,7 +480,7 @@ const DEFAULT_FAQ = [
 // Textos de la tienda que edita la dueña: el "Carmesí Bags" de abajo y las frases de la cinta.
 const DEFAULT_TEXTOS = {
   sobreTitulo: 'Carmesí Bags',
-  sobre: `Somos una tienda de **carteras y bolsos de mujer en Mendoza**. Tenemos carteras, bolsos tote, set materos, organizadores, neceseres y porta botellas, en distintos colores y estampados.
+  sobre: `Somos una tienda de **carteras y bolsos en Mendoza**. Tenemos carteras, bolsos tote, set materos, organizadores, neceseres y porta botellas, en distintos colores y estampados.
 
 Elegís lo que te gusta desde la web y nos mandás el pedido por WhatsApp. Coordinamos la entrega o el envío en **Capital, Godoy Cruz, Guaymallén, Las Heras, Maipú y Luján de Cuyo**.`,
   cinta: ['✨ Nuevos ingresos', '💬 Pedidos por WhatsApp', '🚚 Coordinamos entrega o envío', '👜 Carteras y bolsos en Mendoza', '🔔 Te avisamos cuando vuelve el stock'],
@@ -491,7 +491,7 @@ async function getTextos() {
   return { ...DEFAULT_TEXTOS, ...saved };
 }
 
-// Anuncios para las clientas: una tarjeta que sube desde abajo y una barrita fina arriba. Los maneja la dueña.
+// Anuncios para los clientes: una tarjeta que sube desde abajo y una barrita fina arriba. Los maneja la dueña.
 const DEFAULT_ANUNCIOS = {
   tarjeta: { activo: false, titulo: '', texto: '', foto: '', boton: 'Ver', destino: '', desde: '', hasta: '', version: 0 },
   barra: { activo: false, texto: '', destino: '', desde: '', hasta: '' },
@@ -545,7 +545,7 @@ function normalizePhone(value) {
   return d;
 }
 
-// Límite simple por IP para lo que las clientas mandan sin cuenta.
+// Límite simple por IP para lo que los clientes mandan sin cuenta.
 const publicHits = new Map();
 function tooManyHits(ip, kind, max) {
   const key = kind + ':' + ip;
@@ -887,7 +887,7 @@ async function handleApi(req, res, url) {
     return send(res, 200, await publicCatalog(), { 'Cache-Control': 'no-cache' });
   }
 
-  // "Avisame cuando vuelva": la clienta deja su WhatsApp en un producto sin stock.
+  // "Avisame cuando vuelva": quien compra deja su WhatsApp en un producto sin stock.
   if (route === 'POST /api/avisame') {
     if (tooManyHits(ip, 'avisame', 10)) throw new HttpError(429, 'Probá de nuevo en un rato');
     const body = await readJson(req);
@@ -900,7 +900,7 @@ async function handleApi(req, res, url) {
     return send(res, 200, { ok: true });
   }
 
-  // Qué miran las clientas. No se cuenta lo que hace el equipo con sesión iniciada.
+  // Qué miran los clientes. No se cuenta lo que hace el equipo con sesión iniciada.
   if (route === 'POST /api/evento') {
     const body = await readJson(req).catch(() => ({}));
     const kind = String(body.tipo || '');
@@ -1016,7 +1016,7 @@ async function handleApi(req, res, url) {
     if (user._real) throw new HttpError(403, 'Estás viendo como otra persona: para probar usá la simulación de tu panel');
     if (!(await inMaintenance())) return send(res, 200, { ok: true, yaEstaba: true });
     await setMeta('maintenance', '0');
-    await logActivity('site', null, 'la web', user, 'update', ['🚀 web publicada: ya la ven todas las clientas']);
+    await logActivity('site', null, 'la web', user, 'update', ['🚀 web publicada: ya la ve todo el mundo']);
     return send(res, 200, { ok: true });
   }
 
@@ -1147,7 +1147,7 @@ async function handleApi(req, res, url) {
       desde: fechas[0], hasta: fechas[1],
     };
     if (tarjeta.activo && !tarjeta.titulo) throw new HttpError(400, 'La tarjeta necesita un título');
-    // Si cambia lo que se ve, las clientas la vuelven a ver una vez.
+    // Si cambia lo que se ve, los clientes la vuelven a ver una vez.
     const cambio = ['titulo', 'texto', 'foto', 'boton', 'destino'].some((k) => tarjeta[k] !== antes.tarjeta[k]) || (tarjeta.activo && !antes.tarjeta.activo);
     tarjeta.version = cambio ? Date.now() : antes.tarjeta.version;
     const barra = { activo: !!b.activo, texto: cleanText(b.texto, 90), destino: destinoValido(String(b.destino || '')), desde: fechas[2], hasta: fechas[3] };
@@ -1212,7 +1212,7 @@ async function handleApi(req, res, url) {
     return send(res, 200, { dias, desde, productos: [...por.values()].sort((a, b) => b.vista - a.vista || b.agregado - a.agregado) });
   }
 
-  // Clientas que esperan que vuelva un producto.
+  // Clientes que esperan que vuelva un producto.
   if (route === 'GET /api/avisame') {
     requireRole(can.do(user, 'products_edit'));
     const r = await db.execute('SELECT * FROM stock_alerts ORDER BY created_at');
@@ -1540,14 +1540,14 @@ async function handleApi(req, res, url) {
       }
     }
     if (can.do(user, 'products_edit')) {
-      // Clientas esperando un producto que ya volvió a tener stock.
+      // Clientes esperando un producto que ya volvió a tener stock.
       const r = await db.execute(`SELECT p.id, p.name, p.color, COUNT(*) AS n FROM stock_alerts a JOIN products p ON p.id = a.product_id
         WHERE a.notified_at IS NULL AND p.sold_out = 0 AND p.hidden = 0 GROUP BY p.id ORDER BY MIN(a.created_at)`);
       for (const p of r.rows) {
         avisos.push({
           id: 'stock-' + p.id,
           icono: '🛍️',
-          titulo: `${p.n} ${Number(p.n) === 1 ? 'clienta espera' : 'clientas esperan'} la ${p.name}${p.color ? ' ' + p.color : ''}`,
+          titulo: `${p.n} ${Number(p.n) === 1 ? 'persona espera' : 'personas esperan'} la ${p.name}${p.color ? ' ' + p.color : ''}`,
           texto: 'Ya tiene stock de nuevo: abrí el producto y avisales por WhatsApp con un toque.',
           producto: Number(p.id),
         });
@@ -1747,7 +1747,7 @@ async function datosTienda() {
     '@type': 'Store',
     '@id': SITE_URL + '/#tienda',
     name: 'Carmesí Bags',
-    description: 'Tienda de carteras, bolsos y accesorios de mujer en Mendoza. Pedidos por WhatsApp.',
+    description: 'Tienda de carteras, bolsos y accesorios en Mendoza. Pedidos por WhatsApp.',
     url: SITE_URL + '/',
     logo: SITE_URL + '/assets/img/logo-completo.jpg',
     image: SITE_URL + '/assets/img/logo-completo.jpg',

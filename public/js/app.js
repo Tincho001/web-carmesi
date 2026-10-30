@@ -27,7 +27,7 @@
   const enlace = (p) => p.url + (vista ? '?vista=1' : '');
   const consulta = (p) => `¡Hola Carmesí! Me interesa la ${p.nombre} (${p.color}) de ${plata(p.precio)}. ¿Está disponible?\n${location.origin}${p.url}`;
 
-  // Números para el panel (qué miran las clientas). En la vista previa no se cuenta nada.
+  // Números para el panel (qué miran los clientes). En la vista previa no se cuenta nada.
   function evento(tipo, id) {
     if (vista || !id) return;
     const datos = JSON.stringify({ tipo, productId: Number(id) });
@@ -420,7 +420,7 @@
     }
   }
   const t = anuncios.tarjeta;
-  // Cada clienta ve la tarjeta una sola vez por anuncio (en la vista previa, siempre).
+  // Cada cliente ve la tarjeta una sola vez por anuncio (en la vista previa, siempre).
   if (t && (vista || leer('carmesi-anuncio') !== String(t.version))) {
     $('anuncioTitulo').textContent = t.titulo;
     $('anuncioTexto').textContent = t.texto;
