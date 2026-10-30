@@ -228,4 +228,15 @@ Ahí también te va a escribir Martín cuando haya arreglos o cosas para contart
 - Cuando lo toques, tu web queda **abierta para todo el mundo** en carmesibags.com.ar.
 - Después la seguís manejando igual desde el panel 💛`,
   },
+  {
+    id: 22,
+    fecha: '2026-10-30',
+    icono: '🙏',
+    titulo: 'Un pequeño ajuste en los textos',
+    perm: '',
+    texto: `Te pedimos disculpas: en algunos textos de la web y del panel hablábamos solo de "clientas". Ya lo corregimos, porque **Carmesí es para todos**: también hay quienes buscan un set matero, un regalo o algo lindo para alguien especial 💛
+- En la web ahora dice **"carteras y bolsos en Mendoza"**.
+- En el panel, donde decía "clientas", ahora dice **"clientes"** o **"personas"**.
+💡 Cuando escribas descripciones o anuncios, pensá que te puede leer cualquiera: un "ideal para regalar" suma un montón.`,
+  },
 ];
