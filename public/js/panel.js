@@ -99,8 +99,11 @@
     $('consultarMartin2').href = link;
     $('consultarMartin3').href = link;
     $('consultarMartin3').hidden = puede.super();
+    if (me.pausa) return mostrarPausa(me.pausa, me.como ? 'como' : 'real');
+    $('pantallaPausa').hidden = true;
     pintarAvisos();
     await cargar();
+    if (puede.super()) revisarCuotaVencida();
     pintarArranque();
     revisarNovedades();
     pintarCambiosMenu();
@@ -688,6 +691,7 @@
       // Datos cargados antes en un solo campo: se muestran para pasarlos a alias y titular.
       $('cuotaViejo').hidden = !c.datos;
       $('cuotaViejo').textContent = c.datos ? `Antes tenías cargado: "${c.datos}". Pasalo a Alias y A nombre de, y guardá.` : '';
+      pintarEstadoCuota(c.estado);
       mostrarError($('errorCuota'), null);
       $('dlgCuotaConfig').showModal();
     } catch (err) { avisar(err.message); }
@@ -710,6 +714,107 @@
       mostrarCuota(c);
     } catch (err) { avisar(err.message); }
   });
+  // ---------- ⏸️ cuota vencida y pausa de la web (solo Pixel Cuyo) ----------
+  let estadoCuota = null;
+  function pintarEstadoCuota(e) {
+    estadoCuota = e;
+    $('cuotaEstado').classList.toggle('cuota__estado--mal', e.vencida);
+    $('cuotaEstadoTxt').textContent = e.vencida
+      ? `⚠️ La cuota de ${e.mes} venció y no está marcada como paga`
+      : (e.proximaPaga ? `✓ La cuota de ${e.proximaMes} ya está paga` : `La cuota de ${e.proximaMes} todavía no está paga`);
+    $('cuotaEstadoBtn').textContent = e.proximaPaga ? 'Desmarcar' : '✓ Ya pagó';
+    $('cuotaEstadoBtn').dataset.pagado = e.proximaPaga ? '' : '1';
+    // Aviso arriba de todo en Inicio, cuando venció y la web sigue abierta.
+    $('cuotaVencida').hidden = !e.vencida || e.pausa;
+    $('vencidaTitulo').textContent = `💳 La cuota de ${e.mes} venció`;
+    $('vencidaTexto').textContent = ` ${e.dias === 1 ? 'hace 1 día' : `hace ${e.dias} días`} y no está marcada como paga.`;
+    $('cartelPausa').hidden = !e.pausa;
+    $('menuPausa').innerHTML = e.pausa ? '<span aria-hidden="true">▶️</span> Reactivar la web' : '<span aria-hidden="true">⏸️</span> Pausar la web (cuota impaga)';
+  }
+  async function revisarCuotaVencida() {
+    try { pintarEstadoCuota((await api('GET', '/api/cuota/config')).estado); } catch (_) { /* sin aviso */ }
+  }
+  async function marcarPago(pagado) {
+    try {
+      pintarEstadoCuota(await api('POST', '/api/cuota/pagado', { pagado }));
+      avisar(pagado ? 'Cuota marcada como paga ✓ ¡Gracias, Valentina!' : 'Cuota marcada como no paga');
+    } catch (err) { avisar(err.message); }
+  }
+  $('cuotaEstadoBtn').addEventListener('click', (e) => marcarPago(!!e.currentTarget.dataset.pagado));
+  $('vencidaPago').addEventListener('click', () => marcarPago(true));
+
+  async function abrirPausa() {
+    await revisarCuotaVencida();
+    const e = estadoCuota || {};
+    $('pausaDlgIcono').textContent = e.pausa ? '▶️' : '⏸️';
+    $('pausaDlgTitulo').textContent = e.pausa ? 'Reactivar la web' : 'Pausar la web';
+    $('pausaDlgEstado').textContent = e.pausa
+      ? 'La web está en pausa. Al reactivarla, la tienda y el panel del equipo vuelven a andar al instante.'
+      : (e.vencida ? `La cuota de ${e.mes} venció hace ${e.dias} ${e.dias === 1 ? 'día' : 'días'} y no está marcada como paga.` : `La cuota está al día: no hace falta pausar. Igual podés mirar cómo quedaría.`);
+    $('pausaDlgLista').hidden = !!e.pausa;
+    $('pausaPagoCaja').hidden = !e.pausa;
+    $('pausaPago').checked = true;
+    $('pausaPagoTxt').textContent = `Marcar la cuota de ${e.vencida ? e.mes : e.proximaMes} como paga`;
+    $('pausaSi').textContent = e.pausa ? '▶️ Reactivar la web' : '⏸️ Pausar la web ahora';
+    $('dlgPausa').showModal();
+  }
+  $('menuPausa').addEventListener('click', abrirPausa);
+  $('vencidaPausar').addEventListener('click', abrirPausa);
+  $('cartelPausaBtn').addEventListener('click', abrirPausa);
+  $('pausaSi').addEventListener('click', async () => {
+    const pausar = !estadoCuota.pausa;
+    if (pausar && !confirm('¿Pausar la web ahora?\n\nLa tienda va a mostrar "Volvemos muy pronto" y Valentina y el equipo no van a poder usar el panel hasta que la reactives.')) return;
+    try {
+      pintarEstadoCuota(await api('PUT', '/api/pausa', { on: pausar, pago: $('pausaPago').checked }));
+      $('dlgPausa').close();
+      avisar(pausar ? 'Web en pausa ⏸️' : '¡Web activa de nuevo! ▶️');
+    } catch (err) { avisar(err.message); }
+  });
+
+  // La pantalla de espera: real (el equipo), viendo como alguien, o de demostración para Pixel Cuyo.
+  let modoPausa = 'real';
+  let demoPausa = null;
+  function mostrarPausa(p, modo) {
+    modoPausa = modo;
+    const admin = p.rol === 'admin';
+    $('pausaDemo').hidden = modo !== 'demo';
+    document.querySelectorAll('[data-demo]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.demo === p.rol)));
+    $('pausaTitulo').textContent = admin ? 'Tu tienda está en pausa 🌙' : 'El panel está en pausa por un ratito 🌙';
+    $('pausaTexto').innerHTML = admin
+      ? `<p>La cuota de la web de <b>${escapar(p.mes)}</b> todavía no figura como paga, así que por ahora la tienda online y el panel quedaron en pausa.</p>
+         <p><b>Tranqui, no se borró nada:</b> tus productos, fotos y textos siguen guardados tal cual. Apenas se acredite el pago, Martín la vuelve a activar y todo sigue como estaba ✨</p>
+         <p class="ayuda">Quien entra a la web ve un cartel de "Volvemos muy pronto" con tu WhatsApp, así nadie se queda sin poder escribirte.</p>`
+      : `<p>Por ahora no se pueden hacer cambios en la tienda.</p>
+         <p><b>No se borró nada:</b> todo queda guardado y, cuando vuelva a estar activo, lo vas a poder usar como siempre.</p>
+         <p class="ayuda">Si tenés dudas, consultá con quien administra la tienda.</p>`;
+    $('pausaMonto').hidden = !admin || !p.monto;
+    $('pausaMonto').textContent = p.monto ? `Monto: ${p.monto}` : '';
+    $('pausaDatos').hidden = !admin || (!p.alias && !p.titular && !p.datos);
+    $('pausaAlias').value = p.alias || '';
+    $('pausaAlias').parentElement.hidden = !p.alias;
+    $('pausaTitular').textContent = p.titular ? `A nombre de ${p.titular}` : (p.datos || '');
+    $('pausaWa').hidden = !admin;
+    $('pausaWa').href = `https://wa.me/${WA_MARTIN}?text=${encodeURIComponent(`¡Hola Martín! Soy ${modo === 'demo' ? 'Valentina' : (yo.alias || yo.username)} de Carmesí. Te escribo por la cuota de la web: `)}`;
+    $('pausaSalir').textContent = modo === 'demo' ? '✕ Cerrar la demostración' : modo === 'como' ? '↩️ Volver a mi panel' : 'Salir';
+    $('pantallaPausa').hidden = false;
+    $('pantallaPausa').scrollTop = 0;
+  }
+  $('pausaSalir').addEventListener('click', async () => {
+    if (modoPausa === 'demo') { $('pantallaPausa').hidden = true; return; }
+    if (modoPausa === 'como') return volverDeComo();
+    await api('POST', '/api/logout').catch(() => {});
+    $('pantallaPausa').hidden = true;
+    mostrarLogin();
+  });
+  $('pausaVerPanel').addEventListener('click', async () => {
+    try {
+      demoPausa = await api('GET', '/api/pausa/demo');
+      $('dlgPausa').close();
+      mostrarPausa(demoPausa.admin, 'demo');
+    } catch (err) { avisar(err.message); }
+  });
+  document.querySelectorAll('[data-demo]').forEach((b) => b.addEventListener('click', () => mostrarPausa(demoPausa[b.dataset.demo], 'demo')));
+
   $('novedadesOk').addEventListener('click', () => { leerAlCerrar = true; $('dlgNovedades').close(); });
   // Con "¡Entendido!" (o abriendo la bandeja) quedan leídas; con la ✕ quedan esperando en la campanita.
   $('dlgNovedades').addEventListener('close', () => {
@@ -1892,15 +1997,8 @@
   });
 
   // ---------- 🚀 publicar la web: confirmar → carga con % → felicitaciones ----------
-  let simulacion = false;
   const espera = (ms) => new Promise((r) => setTimeout(r, ms));
-  function abrirPublicar(esSimulacion) {
-    simulacion = esSimulacion;
-    $('publicarSim').hidden = !simulacion;
-    $('dlgPublicar').showModal();
-  }
-  $('menuPublicar').addEventListener('click', () => abrirPublicar(false));
-  $('menuPublicarPrueba').addEventListener('click', () => abrirPublicar(true));
+  $('menuPublicar').addEventListener('click', () => $('dlgPublicar').showModal());
   // La carga no se cierra con Esc ni tocando afuera.
   $('dlgPublicando').addEventListener('cancel', (e) => e.preventDefault());
 
@@ -1936,10 +2034,10 @@
     $('publicandoBarra').style.width = '0%';
     $('dlgPublicando').showModal();
     try {
-      await cargar100(simulacion ? espera(1500) : api('POST', '/api/publicar'));
+      await cargar100(api('POST', '/api/publicar'));
       await espera(500);
       $('dlgPublicando').close();
-      if (!simulacion) pintarObra(false);
+      pintarObra(false);
       mostrarFelicitaciones();
     } catch (err) {
       $('dlgPublicando').close();
@@ -1948,9 +2046,8 @@
   });
 
   function mostrarFelicitaciones() {
-    const nombre = simulacion ? 'Valen' : (yo.alias || yo.username).split(' ')[0];
+    const nombre = (yo.alias || yo.username).split(' ')[0];
     $('felicitacionesTitulo').textContent = `¡Felicitaciones, ${nombre}!`;
-    $('felicitacionesSim').hidden = !simulacion;
     $('dlgFelicitaciones').showModal();
     $('dlgFelicitaciones').scrollTop = 0;
     papelitos();

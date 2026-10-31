@@ -644,3 +644,45 @@ body.viendo-como .cabeza { top: 38px; }
 }
 .novedad__pin { position: absolute; top: 8px; right: 10px; padding: 2px 10px; border-radius: 99px; background: var(--bordo); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .03em; }
 .novedad__para { display: inline-block; margin-top: 4px; padding: 1px 8px; border-radius: 99px; background: #f0e6dc; color: var(--gris); font-size: 11px; font-weight: 600; }
+
+/* ---------- Cuota vencida y pausa de la web ---------- */
+.cartel--pausa { background: #3b1016; color: #f6efe6; }
+.cartel--pausa[hidden] { display: none; }
+.cartel--pausa button { margin-left: 6px; padding: 3px 12px; border: 0; border-radius: 99px; background: #f6efe6; color: var(--bordo); font: inherit; font-size: 12.5px; font-weight: 600; }
+.vencida { display: grid; gap: 10px; margin: 0 0 14px; padding: 14px 16px; border: 1.5px solid #e9b4a0; border-radius: 16px; background: #fff3ee; color: #6b2a1a; font-size: 13.5px; line-height: 1.5; }
+.vencida[hidden] { display: none; }
+.vencida p { margin: 0; }
+.vencida__botones { display: flex; flex-wrap: wrap; gap: 8px; }
+.vencida__pausar { background: var(--bordo) !important; border-color: var(--bordo) !important; color: #fff !important; }
+.cuota__estado { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-radius: 12px; background: #eef7ee; color: #24572b; font-size: 13px; font-weight: 600; }
+.cuota__estado--mal { background: #fff3ee; color: #6b2a1a; }
+.cuota__estado .mini { flex: none; }
+.pausa-dlg { width: min(420px, calc(100% - 28px)); text-align: center; }
+.pausa-dlg[open] { display: grid; gap: 10px; }
+.pausa-dlg h2 { margin: 0; font-family: var(--serif); font-size: 28px; font-weight: 600; color: var(--bordo); }
+.pausa-dlg p { margin: 0; font-size: 14px; line-height: 1.55; }
+.pausa-dlg .cuota__icono { margin: 4px 0 0; font-size: 40px; line-height: 1; }
+.pausa-dlg__estado { padding: 8px 12px; border-radius: 12px; background: #fbf1dd; color: #6b4a12; font-size: 13px !important; }
+.pausa-dlg__mirar { margin-top: 4px !important; font-weight: 600; color: var(--tinta); }
+.pausa-dlg__demos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pausa-dlg__demos .btn { text-decoration: none; text-align: center; }
+.pausa-dlg .pausa-dlg__pago { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--tinta); }
+.pausa-dlg .pausa-dlg__pago input { width: 20px; height: 20px; accent-color: var(--bordo); }
+.pausa-dlg [hidden], .pausa-dlg .pausa-dlg__pago[hidden] { display: none; }
+
+.pausa-panel { position: fixed; inset: 0; z-index: 60; overflow-y: auto; display: grid; place-items: center; padding: 24px 16px; background: radial-gradient(ellipse at 50% 30%, #fff8ef, #f3e4d3); animation: entrarPausa .5s ease both; }
+.pausa-panel[hidden] { display: none; }
+@keyframes entrarPausa { from { opacity: 0; } to { opacity: 1; } }
+.pausa-panel__caja { width: min(420px, 100%); display: grid; gap: 12px; padding: 26px 22px; border-radius: 24px; background: #fff; box-shadow: 0 18px 50px rgba(94, 26, 34, .16); text-align: center; }
+.pausa-panel__logo { width: 70px; height: auto; margin: 0 auto; animation: respirar 3.6s ease-in-out infinite; }
+@keyframes respirar { 0%, 100% { transform: scale(1); opacity: .9; } 50% { transform: scale(1.05); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pausa-panel, .pausa-panel__logo { animation: none; } }
+.pausa-panel h2 { margin: 0; font-family: var(--serif); font-size: 27px; font-weight: 600; line-height: 1.2; color: var(--bordo); }
+.pausa-panel__texto { display: grid; gap: 8px; }
+.pausa-panel__texto p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--tinta); }
+.pausa-panel .cuota__monto { margin: 0; }
+.pausa-panel .cuota__datos [hidden], .pausa-panel [hidden] { display: none; }
+.pausa-panel__demo { display: grid; gap: 8px; padding: 10px; border-radius: 14px; background: #fbd46d; color: #4a3200; font-size: 12.5px; font-weight: 600; }
+.pausa-panel__quien { display: flex; justify-content: center; gap: 6px; }
+.pausa-panel__quien button { padding: 5px 14px; border: 1px solid #4a3200; border-radius: 99px; background: transparent; color: #4a3200; font: inherit; font-size: 12.5px; }
+.pausa-panel__quien button[aria-pressed="true"] { background: #4a3200; color: #fff; }

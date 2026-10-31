@@ -52,11 +52,19 @@
       <button type="button" class="cabeza__icono" id="abrirAvisos" aria-label="Avisos" title="Avisos">🔔<span class="cabeza__badge" id="avisosN" hidden></span></button>
     </header>
 
+    <p class="cartel cartel--pausa" id="cartelPausa" hidden>⏸️ La web está <strong>en pausa</strong> por la cuota. <button type="button" id="cartelPausaBtn">Reactivar</button></p>
     <p class="cartel" id="cartelObra" hidden>🧵 La web está <strong>en construcción</strong>: los clientes todavía no ven los productos.</p>
 
     <!-- Inicio -->
     <section class="pantalla" id="pInicio" data-pantalla="inicio">
       <p class="saludo" id="saludo"></p>
+      <div class="vencida" id="cuotaVencida" hidden>
+        <p><b id="vencidaTitulo"></b><span id="vencidaTexto"></span></p>
+        <div class="vencida__botones">
+          <button type="button" class="mini" id="vencidaPago">✓ Ya pagó</button>
+          <button type="button" class="mini vencida__pausar" id="vencidaPausar">⏸️ Pausar la web…</button>
+        </div>
+      </div>
       <div class="arranque" id="arranque" hidden></div>
       <button type="button" class="grande" id="inicioAgregar" data-perm="products_edit">
         <span class="grande__icono" aria-hidden="true">📷</span>
@@ -100,7 +108,6 @@
         <button type="button" class="fila fila--guia" id="menuGuia"><span aria-hidden="true">📖</span> Cómo usar el panel</button>
         <button type="button" class="fila" id="menuApp"><span aria-hidden="true">📲</span> Poner el panel en el celu</button>
         <button type="button" class="fila" id="menuNovedades"><span aria-hidden="true">📬</span> Noticias y mejoras <em class="fila__badge" id="novedadesN" hidden></em></button>
-        <button type="button" class="fila" id="menuPublicarPrueba" data-solo="super"><span aria-hidden="true">🧪</span> Probar "Publicar web" (simulación)</button>
         <button type="button" class="fila" id="menuNoticia" data-solo="super"><span aria-hidden="true">📣</span> Mandar una noticia al panel</button>
         <button type="button" class="fila" id="menuCambios" data-solo="admin" hidden><span aria-hidden="true">✏️</span> Realizar cambios en web <em class="fila__nota" id="cambiosQuedan"></em></button>
         <button type="button" class="fila" id="menuUsuarios" data-perm="users|admins"><span aria-hidden="true">👥</span> Usuarios</button>
@@ -112,6 +119,7 @@
         <button type="button" class="fila" id="menuFaq" data-perm="settings"><span aria-hidden="true">❓</span> Preguntas frecuentes</button>
         <button type="button" class="fila" id="menuNiveles" data-solo="super"><span aria-hidden="true">🔐</span> Niveles y permisos</button>
         <button type="button" class="fila" id="menuCuota" data-solo="super"><span aria-hidden="true">💳</span> Aviso de la cuota mensual</button>
+        <button type="button" class="fila" id="menuPausa" data-solo="super"><span aria-hidden="true">⏸️</span> Pausar la web (cuota impaga)</button>
         <button type="button" class="fila" id="menuCambiosSugeridos" data-solo="super"><span aria-hidden="true">📬</span> Cambios sugeridos <em class="fila__badge" id="cambiosN" hidden></em></button>
         <button type="button" class="fila" id="menuObra" data-solo="super"></button>
         <button type="button" class="fila" id="menuClave"><span aria-hidden="true">🔑</span> Cambiar mi contraseña</button>
@@ -403,6 +411,7 @@
         <button type="button" class="cerrar" data-cerrar aria-label="Cerrar">×</button>
       </div>
       <p class="ayuda">Lo ven solo los administradores (Valentina y quien tenga su mismo rango), no los vendedores. Sale una vez por día, desde unos días antes hasta el vencimiento.</p>
+      <div class="cuota__estado" id="cuotaEstado"><span id="cuotaEstadoTxt"></span><button type="button" class="mini" id="cuotaEstadoBtn"></button></div>
       <label class="switch"><input type="checkbox" name="activo"><span></span> Aviso activado</label>
       <div class="dos">
         <label>Vence el día <input name="dia" type="number" min="1" max="28" inputmode="numeric" required></label>
@@ -443,9 +452,56 @@
     </form>
   </dialog>
 
+  <!-- Pausar la web por la cuota (solo Pixel Cuyo): primero se puede mirar cómo queda -->
+  <dialog class="dlg pausa-dlg" id="dlgPausa">
+    <p class="cuota__icono" aria-hidden="true" id="pausaDlgIcono">⏸️</p>
+    <h2 id="pausaDlgTitulo">Pausar la web</h2>
+    <p class="pausa-dlg__estado" id="pausaDlgEstado"></p>
+    <ul class="publicar__lista" id="pausaDlgLista">
+      <li>🌙 La tienda muestra un cartel lindo: <b>"Volvemos muy pronto"</b>, con el WhatsApp de Carmesí</li>
+      <li>⏸️ Valentina y el equipo ven su panel en espera, con los datos para pagar</li>
+      <li>💾 No se borra nada: productos, fotos y textos quedan guardados</li>
+      <li>▶️ Lo reactivás con un toque y todo vuelve a como estaba</li>
+    </ul>
+    <p class="pausa-dlg__mirar">👀 Mirá cómo queda antes (no cambia nada de verdad):</p>
+    <div class="pausa-dlg__demos">
+      <a class="btn btn--borde" href="/pausa" target="_blank" rel="noopener">🌙 La web</a>
+      <button type="button" class="btn btn--borde" id="pausaVerPanel">⏸️ El panel</button>
+    </div>
+    <label class="pausa-dlg__pago" id="pausaPagoCaja" hidden><input type="checkbox" id="pausaPago" checked> <span id="pausaPagoTxt"></span></label>
+    <button type="button" class="btn btn--bordo btn--ancho" id="pausaSi">⏸️ Pausar la web ahora</button>
+    <button type="button" class="btn btn--borde btn--ancho" data-cerrar>Cancelar</button>
+  </dialog>
+
+  <!-- Lo que ve el equipo con la web en pausa (y la demostración para Pixel Cuyo) -->
+  <div class="pausa-panel" id="pantallaPausa" hidden>
+    <div class="pausa-panel__caja">
+      <div class="pausa-panel__demo" id="pausaDemo" hidden>
+        <span>🧪 Demostración: así lo ve</span>
+        <span class="pausa-panel__quien">
+          <button type="button" data-demo="admin">Valentina</button>
+          <button type="button" data-demo="vendedor">Vendedor/a</button>
+        </span>
+      </div>
+      <img class="pausa-panel__logo" src="assets/img/monograma-bordo.png" alt="" width="595" height="530">
+      <h2 id="pausaTitulo"></h2>
+      <div class="pausa-panel__texto" id="pausaTexto"></div>
+      <p class="cuota__monto" id="pausaMonto" hidden></p>
+      <div class="cuota__datos" id="pausaDatos" hidden>
+        <span class="cuota__etiqueta">Alias para transferir</span>
+        <span class="copiable">
+          <input id="pausaAlias" readonly aria-label="Alias para transferir">
+          <button type="button" class="mini" data-copiar="pausaAlias">📋 Copiar</button>
+        </span>
+        <small id="pausaTitular"></small>
+      </div>
+      <a class="btn btn--wa btn--ancho" id="pausaWa" target="_blank" rel="noopener">💬 Escribirle a Martín</a>
+      <button type="button" class="btn btn--borde btn--ancho" id="pausaSalir">Salir</button>
+    </div>
+  </div>
+
   <!-- Publicar la web: confirmar → carga con % → felicitaciones -->
   <dialog class="dlg publicar" id="dlgPublicar">
-    <p class="publicar__sim" id="publicarSim" hidden>🧪 Simulación: no se publica nada de verdad</p>
     <img class="publicar__logo" src="assets/img/monograma-bordo.png" alt="" width="595" height="530">
     <h2>¿Publicamos tu web?</h2>
     <p>Al publicarla, <b>carmesibags.com.ar</b> queda <b>abierta para todo el mundo</b>: cualquiera va a poder ver tus productos, armar su pedido y escribirte por WhatsApp.</p>
@@ -468,7 +524,6 @@
 
   <dialog class="dlg felicitaciones" id="dlgFelicitaciones">
     <canvas class="papelitos" id="papelitos" aria-hidden="true"></canvas>
-    <p class="felicitaciones__sim" id="felicitacionesSim" hidden>🧪 Simulación</p>
     <p class="felicitaciones__emoji" aria-hidden="true">🎉</p>
     <p class="felicitaciones__pre">Carmesí Bags ya está online</p>
     <h2 id="felicitacionesTitulo">¡Felicitaciones!</h2>

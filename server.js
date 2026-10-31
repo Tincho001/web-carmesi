@@ -469,6 +469,8 @@ async function setMeta(key, value) {
 
 // Mientras no se lance, la web arranca "en construcción" (solo Pixel Cuyo la abre desde el panel).
 const inMaintenance = async () => (await getMeta('maintenance')) !== '0';
+// Pausa por la cuota: la pone Pixel Cuyo a mano. La tienda muestra "volvemos pronto" y el panel del equipo queda en espera.
+const enPausa = async () => (await getMeta('pausa')) === '1';
 
 // Preguntas frecuentes de la tienda: las edita la dueña desde el panel.
 const DEFAULT_FAQ = [
@@ -527,13 +529,62 @@ const DEFAULT_CUOTA = { activo: true, dia: 28, aviso: 5, monto: '', alias: '', t
 async function getCuota() {
   let saved = {};
   try { saved = JSON.parse((await getMeta('cuota')) || '{}'); } catch { saved = {}; }
-  return { ...DEFAULT_CUOTA, ...saved };
+  const c = { ...DEFAULT_CUOTA, ...saved };
+  // La primera vez que existe el control de pagos, se da por paga la última cuota vencida.
+  if (!c.pagado) {
+    c.pagado = cuotaVencida(c).periodo;
+    await setMeta('cuota', JSON.stringify({ ...saved, pagado: c.pagado }));
+  }
+  return c;
+}
+const mesAnterior = (mes) => {
+  const [y, m] = mes.split('-').map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+};
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const nombreMes = (mes) => MESES[Number(mes.slice(5, 7)) - 1];
+// La última cuota que ya venció (la de este mes si ya pasó el día, si no la del mes anterior) y si está paga.
+function cuotaVencida(c, ahora = Date.now()) {
+  const hoy = diaAR(ahora);
+  const periodo = Number(hoy.slice(8, 10)) > c.dia ? hoy.slice(0, 7) : mesAnterior(hoy.slice(0, 7));
+  const vence = Date.parse(`${periodo}-${String(c.dia).padStart(2, '0')}T00:00:00-03:00`);
+  const dias = Math.floor((Date.parse(hoy + 'T00:00:00-03:00') - vence) / 864e5);
+  return { periodo, mes: nombreMes(periodo), dias, vencida: !!c.activo && !!c.pagado && c.pagado < periodo };
+}
+// Qué cuota se marca como paga con un toque: la vencida si la hay; si no, la que viene.
+const mesSiguiente = (mes) => {
+  const [y, m] = mes.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+};
+function cuotaAPagar(c) {
+  const v = cuotaVencida(c);
+  if (v.vencida) return v.periodo;
+  // Si la de este mes ya venció (y está paga), la que viene es la del mes siguiente.
+  return Number(diaAR(Date.now()).slice(8, 10)) > c.dia ? mesSiguiente(mesAR()) : mesAR();
+}
+async function estadoCuota(c) {
+  const v = cuotaVencida(c);
+  const proxima = cuotaAPagar(c);
+  return { ...v, pausa: await enPausa(), pagado: c.pagado, proxima, proximaMes: nombreMes(proxima), proximaPaga: c.pagado >= proxima };
 }
 // Si hoy toca avisar: desde "aviso" días antes hasta el día del vencimiento, inclusive.
 function cuotaHoy(c, ahora = Date.now()) {
   const hoy = Number(diaAR(ahora).slice(8, 10));
   const faltan = c.dia - hoy;
   return { toca: c.activo && faltan >= 0 && faltan <= c.aviso, faltan };
+}
+
+// Lo que ve el equipo en el panel con la web en pausa: los administradores, los datos para pagar.
+async function datosPausa(user) {
+  const c = await getCuota();
+  const base = { rol: user.role === 'admin' ? 'admin' : 'vendedor', mes: nombreMes(cuotaAPagar(c)) };
+  return base.rol === 'admin' ? { ...base, monto: c.monto, alias: c.alias, titular: c.titular, datos: c.alias || c.titular ? '' : (c.datos || '') } : base;
+}
+// La página "volvemos pronto" de la tienda, con el WhatsApp de la tienda.
+async function sendPausa(res, status) {
+  const wa = (await getSettings()).whatsapp;
+  const html = fs.readFileSync(path.join(PUBLIC_DIR, 'pausa.html'), 'utf8').replace('{{WA}}', encodeURIComponent(wa));
+  return send(res, status, html, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex', ...(status === 503 ? { 'Retry-After': '86400' } : {}) });
 }
 
 // Teléfono argentino a formato de WhatsApp: "261 555-1234" → 5492615551234.
@@ -892,6 +943,7 @@ async function handleApi(req, res, url) {
     // ?vista=1 lo manda la vista previa /inicio, que se ve siempre.
     const preview = url.searchParams.get('vista') === '1';
     if (!preview && (await inMaintenance()) && !(await currentUser(req))) throw new HttpError(503, 'Sitio en construcción');
+    if ((await enPausa()) && !can.super((await currentUser(req)) || {})) throw new HttpError(503, 'Volvemos pronto');
     return send(res, 200, await publicCatalog(), { 'Cache-Control': 'no-cache' });
   }
 
@@ -960,12 +1012,16 @@ async function handleApi(req, res, url) {
   if (user._real && route === 'PUT /api/me/password') throw new HttpError(403, 'Estás viendo como otra persona: su contraseña no se puede cambiar desde acá');
   if (user._real && ['POST /api/novedades/visto', 'POST /api/novedades/estado', 'POST /api/cuota/visto'].includes(route)) return send(res, 200, { ok: true, prueba: true });
 
+  const pausada = await enPausa();
+  if (pausada && !can.super(user) && route !== 'GET /api/me') throw new HttpError(423, 'La web está en pausa por un momento. Escribile a Martín y te ayuda.');
+
   if (route === 'GET /api/me') {
     let pasos = [];
     try { pasos = JSON.parse((await getUser(user.id)).first_steps || '[]'); } catch { pasos = []; }
     return send(res, 200, {
       user: publicUser(user), perms: permsOf(user), maintenance: await inMaintenance(), pasos,
       como: user._real ? { alias: user.alias || user.username, role: user.role } : null,
+      pausa: pausada && !can.super(user) ? await datosPausa(user) : null,
     });
   }
   if (route === 'POST /api/me/pasos') {
@@ -1021,7 +1077,7 @@ async function handleApi(req, res, url) {
   // Publicar la web: lo hace la dueña (o alguien de administración) una sola vez, desde su panel.
   if (route === 'POST /api/publicar') {
     requireRole(user.role === 'admin' || can.super(user), 'Solo los administradores pueden publicar la web');
-    if (user._real) throw new HttpError(403, 'Estás viendo como otra persona: para probar usá la simulación de tu panel');
+    if (user._real) throw new HttpError(403, 'Estás viendo como otra persona: la web solo la publica su dueña desde su propio panel');
     if (!(await inMaintenance())) return send(res, 200, { ok: true, yaEstaba: true });
     await setMeta('maintenance', '0');
     await logActivity('site', null, 'la web', user, 'update', ['🚀 web publicada: ya la ve todo el mundo']);
@@ -1036,13 +1092,42 @@ async function handleApi(req, res, url) {
     return send(res, 200, { maintenance: on });
   }
 
+  // ----- pausa por la cuota (solo Pixel Cuyo) -----
+  if (route === 'PUT /api/pausa') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo puede pausar la web');
+    const body = await readJson(req);
+    const on = !!body.on;
+    await setMeta('pausa', on ? '1' : '0');
+    // Al reactivar, se puede marcar la cuota como paga en el mismo paso.
+    if (!on && body.pago) {
+      const c = await getCuota();
+      await setMeta('cuota', JSON.stringify({ ...c, pagado: cuotaAPagar(c) }));
+    }
+    await logActivity('site', null, 'la web', user, 'update', [on ? '⏸️ pausó la web por la cuota' : '▶️ reactivó la web']);
+    return send(res, 200, await estadoCuota(await getCuota()));
+  }
+  // Marcar (o desmarcar) la cuota como paga.
+  if (route === 'POST /api/cuota/pagado') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo');
+    const c = await getCuota();
+    const pagado = (await readJson(req)).pagado ? cuotaAPagar(c) : mesAnterior(cuotaAPagar(c));
+    await setMeta('cuota', JSON.stringify({ ...c, pagado }));
+    await logActivity('site', null, 'cuota', user, 'update', [`cuota de ${nombreMes(pagado)}: ${pagado >= cuotaAPagar(c) ? 'paga ✓' : 'sin pagar'}`]);
+    return send(res, 200, await estadoCuota({ ...c, pagado }));
+  }
+  // La demostración del panel en pausa: lo que vería cada uno.
+  if (route === 'GET /api/pausa/demo') {
+    requireRole(can.super(user), 'Solo Pixel Cuyo');
+    return send(res, 200, { admin: await datosPausa({ role: 'admin' }), vendedor: await datosPausa({ role: 'vendedor' }) });
+  }
+
   // ----- datos del negocio (WhatsApp e Instagram) -----
   // Aviso de la cuota: solo para administradores (no vendedores ni Pixel Cuyo), una vez por día.
   if (route === 'GET /api/cuota') {
     const c = await getCuota();
     const { toca, faltan } = cuotaHoy(c);
     const visto = (await getUser(user.id)).fee_notice_day === diaAR(Date.now());
-    const mostrar = user.role === 'admin' && toca && !visto;
+    const mostrar = user.role === 'admin' && toca && !visto && !(c.pagado >= mesAR());
     return send(res, 200, mostrar || url.searchParams.has('prueba') && can.super(user)
       // En la vista de prueba, si hoy no toca, se muestra como si faltaran unos días.
       ? { mostrar: true, dia: c.dia, faltan: toca ? faltan : Math.min(3, c.aviso), monto: c.monto, alias: c.alias, titular: c.titular, datos: c.alias || c.titular ? '' : (c.datos || '') }
@@ -1054,7 +1139,8 @@ async function handleApi(req, res, url) {
   }
   if (route === 'GET /api/cuota/config') {
     requireRole(can.super(user), 'Solo Pixel Cuyo');
-    return send(res, 200, await getCuota());
+    const c = await getCuota();
+    return send(res, 200, { ...c, estado: await estadoCuota(c) });
   }
   if (route === 'PUT /api/cuota/config') {
     requireRole(can.super(user), 'Solo Pixel Cuyo');
@@ -1064,7 +1150,7 @@ async function handleApi(req, res, url) {
     if (!(dia >= 1 && dia <= 28)) throw new HttpError(400, 'El día tiene que ser entre 1 y 28 (así existe en todos los meses)');
     if (!(aviso >= 0 && aviso <= 15)) throw new HttpError(400, 'Los días de aviso tienen que ser entre 0 y 15');
     const alias = cleanText(body.alias, 60).replace(/\s+/g, '');
-    const c = { activo: !!body.activo, dia, aviso, monto: cleanText(body.monto, 30), alias, titular: cleanText(body.titular, 80) };
+    const c = { activo: !!body.activo, dia, aviso, monto: cleanText(body.monto, 30), alias, titular: cleanText(body.titular, 80), pagado: (await getCuota()).pagado };
     // Lo que estaba en el campo viejo "Datos para pagar" se guarda hasta que se carguen alias o titular.
     const viejo = (await getCuota()).datos;
     if (viejo && !c.alias && !c.titular) c.datos = viejo;
@@ -1968,7 +2054,10 @@ async function handle(req, res) {
     if (url.pathname === '/panel/') return send(res, 301, '', { Location: '/panel' });
     if (url.pathname === '/inicio/') return send(res, 301, '', { Location: '/inicio' });
     // Página de cada producto. En construcción solo se ve con ?vista=1 (y Google no la indexa).
+    if (url.pathname === '/pausa') return sendPausa(res, 200);
+    const pausada = await enPausa();
     const prod = url.pathname.match(/^\/producto\/([a-z0-9-]+)\/?$/);
+    if (pausada && (url.pathname === '/' || url.pathname === '/index.html' || prod || (url.pathname === '/inicio' && !can.super((await currentUser(req)) || {})))) return sendPausa(res, 503);
     if (prod) {
       const vista = url.searchParams.has('vista');
       if (!vista && (await inMaintenance())) return serveFile(res, path.join(PUBLIC_DIR, 'construccion.html'), 'no-cache');
@@ -1984,7 +2073,7 @@ async function handle(req, res) {
       return send(res, 200, await sitemapXml(), { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
     }
     // Vista previa de la tienda: se ve aunque la portada esté en construcción (Google no la indexa).
-    if (url.pathname === '/inicio' && !(await inMaintenance())) return send(res, 302, '', { Location: '/' });
+    if (url.pathname === '/inicio' && !pausada && !(await inMaintenance())) return send(res, 302, '', { Location: '/' });
     if (url.pathname === '/inicio') {
       return send(res, 200, await renderTienda(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex, nofollow' });
     }
