@@ -574,6 +574,16 @@ function cuotaHoy(c, ahora = Date.now()) {
   return { toca: c.activo && faltan >= 0 && faltan <= c.aviso, faltan };
 }
 
+// Dónde se ve un cambio del historial en la tienda (null si no se ve, o si ya se borró).
+const CAMBIOS_DE_LA_WEB = ['anuncio en la web', 'textos de la web', 'preguntas frecuentes', 'datos del negocio', 'la web', 'web'];
+function verEnWeb(a, slugs) {
+  if (a.action === 'delete') return null;
+  if (a.kind === 'product') return slugs.has(String(a.entity_id)) ? '/producto/' + slugs.get(String(a.entity_id)) : null;
+  if (a.kind === 'category') return '/#productos';
+  if (a.kind === 'site' && CAMBIOS_DE_LA_WEB.includes(a.name)) return '/';
+  return null;
+}
+
 // Lo que ve el equipo en el panel con la web en pausa: los administradores, los datos para pagar.
 async function datosPausa(user) {
   const c = await getCuota();
@@ -1516,8 +1526,10 @@ async function handleApi(req, res, url) {
     const to = Number(url.searchParams.get('to')) || Date.now() + 864e5;
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 200);
     const r = await db.execute({ sql: `SELECT * FROM activity WHERE at >= ? AND at < ? ${activityScope(user)} ORDER BY at DESC, id DESC LIMIT ?`, args: [from, to, limit] });
+    // Solo Pixel Cuyo: a dónde mirar cada cambio en la web.
+    const slugs = can.super(user) ? await productSlugs() : null;
     return send(res, 200, {
-      items: r.rows.map((a) => ({ id: a.id, kind: a.kind, name: a.name, who: a.who, action: a.action, changes: JSON.parse(a.changes || '[]'), at: a.at })),
+      items: r.rows.map((a) => ({ id: a.id, kind: a.kind, name: a.name, who: a.who, action: a.action, changes: JSON.parse(a.changes || '[]'), at: a.at, ...(slugs ? { web: verEnWeb(a, slugs) } : {}) })),
     });
   }
 

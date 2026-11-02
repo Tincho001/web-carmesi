@@ -1010,9 +1010,14 @@
       $('listaUltimos').innerHTML = items.map((a) => `
         <li><strong>${escapar(a.who.replace(/ \(.*\)$/, ''))}</strong> ${ACCION[a.action] || a.action} ${escapar(a.name)}
           ${a.changes.length ? `<span>${escapar(a.changes.join(' · '))}</span>` : ''}
-          <time>${hace(a.at)}</time>${botonBorrarCambio(a)}</li>`).join('') || '<li class="vacio">Todavía no hay cambios.</li>';
+          <time>${hace(a.at)}</time>${botonVerEnWeb(a)}${botonBorrarCambio(a)}</li>`).join('') || '<li class="vacio">Todavía no hay cambios.</li>';
     } catch (_) { /* si falla, no se muestra */ }
   }
+
+  // Solo Pixel Cuyo: un enlace para ver ese cambio en la tienda (el servidor solo se lo manda a Pixel Cuyo).
+  const botonVerEnWeb = (a) => (a.web
+    ? `<a class="cambio__ver" href="${escapar(a.web)}" target="_blank" rel="noopener">👁️ Ver en la web</a>`
+    : '');
 
   // Solo Pixel Cuyo: una ✕ en cada cambio para borrarlo del historial de todos.
   const botonBorrarCambio = (a) => (puede.super()
@@ -1899,7 +1904,7 @@
       <li>
         <p><strong>${escapar(a.who)}</strong> ${ACCION[a.action] || a.action} ${TIPO[a.kind] ?? ''} <strong>${escapar(a.name)}</strong></p>
         ${a.changes.length ? `<ul>${a.changes.map((c) => `<li>${escapar(c)}</li>`).join('')}</ul>` : ''}
-        <time>${new Date(a.at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>${botonBorrarCambio(a)}
+        <time>${new Date(a.at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</time>${botonVerEnWeb(a)}${botonBorrarCambio(a)}
       </li>`).join('') || '<li class="vacio">Ese día no hubo cambios.</li>';
   }
 
