@@ -1,8 +1,8 @@
 name: Deploy to Hetzner
 
+# Apagado el automático: se publica a mano por SSH (GitHub no tiene las claves del servidor).
+# Se puede correr a mano desde Actions si algún día se cargan las claves.
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 concurrency:
