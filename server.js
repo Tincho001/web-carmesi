@@ -2032,7 +2032,8 @@ async function sitemapXml() {
   const rows = (await db.execute('SELECT id, updated_at FROM products WHERE hidden = 0 ORDER BY id')).rows;
   const ultimo = Math.max(0, ...rows.map((r) => Number(r.updated_at) || 0));
   const urls = [`  <url><loc>${SITE_URL}/</loc><lastmod>${dia(ultimo)}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>`,
-    ...rows.map((r) => `  <url><loc>${SITE_URL}/producto/${slugs.get(String(r.id))}</loc><lastmod>${dia(r.updated_at)}</lastmod><priority>0.8</priority></url>`)];
+    ...rows.map((r) => `  <url><loc>${SITE_URL}/producto/${slugs.get(String(r.id))}</loc><lastmod>${dia(r.updated_at)}</lastmod><priority>0.8</priority></url>`),
+    `  <url><loc>${SITE_URL}/privacidad</loc><changefreq>yearly</changefreq><priority>0.2</priority></url>`];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.join('\n')}
@@ -2051,6 +2052,11 @@ Sitemap: ${SITE_URL}/sitemap.xml
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
+  // Una sola dirección para Google: www.carmesibags.com.ar -> carmesibags.com.ar
+  if ((req.method === 'GET' || req.method === 'HEAD') && /^www\./i.test(String(req.headers.host || ''))) {
+    res.writeHead(301, { Location: SITE_URL + req.url });
+    return res.end();
+  }
   try {
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
 
