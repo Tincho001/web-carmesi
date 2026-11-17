@@ -508,3 +508,10 @@ a.tarjeta__foto { display: block; }
 .anuncio.visible ~ .wa-flotante, body:has(.anuncio.visible) .wa-flotante { opacity: 0; pointer-events: none; }
 .wa-flotante { transition: opacity .3s; }
 @media (prefers-reduced-motion: reduce) { .anuncio { transition: none; } .anuncio-barra { animation: none; } }
+
+/* ---------- Legales (como JM) ---------- */
+.legales { margin-top: 24px; font-size: 11px; opacity: .6; }
+.legales p { margin: 0 0 6px; }
+.legales nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 8px; }
+.legales a { color: inherit; text-decoration: none; }
+.legales a:hover { text-decoration: underline; }

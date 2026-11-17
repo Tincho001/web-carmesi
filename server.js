@@ -2097,6 +2097,7 @@ async function handle(req, res) {
     if (tienda) return send(res, 200, await renderTienda(), { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     const rel = url.pathname === '/' ? 'index.html'
       : url.pathname === '/panel' ? 'panel.html'
+      : url.pathname === '/privacidad' ? 'privacidad.html'
       : decodeURIComponent(url.pathname).replace(/^\/+/, '');
     const file = path.join(PUBLIC_DIR, rel);
     if (!file.startsWith(PUBLIC_DIR + path.sep)) return send(res, 404, 'No encontrado');
